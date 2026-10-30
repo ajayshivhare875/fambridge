@@ -141,6 +141,18 @@ def debug_telegram():
                         "detail": str(e)[:300]}), 502
 
 
+@app.route("/debug/polling")
+def debug_polling():
+    # Temporary diagnostic: reports the Telegram polling loop state.
+    try:
+        import bot as _botmod
+        return jsonify({"ok": True,
+                        "poll_status": _botmod.POLL_STATUS})
+    except Exception as e:
+        return jsonify({"ok": False, "error": type(e).__name__,
+                        "detail": str(e)[:200]}), 500
+
+
 @app.route("/terms")
 def terms():
     return L.terms_html()
