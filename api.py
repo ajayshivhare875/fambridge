@@ -116,6 +116,31 @@ def index():
                                   "/terms", "/privacy"]})
 
 
+@app.route("/debug/telegram")
+def debug_telegram():
+    # Temporary diagnostic: tests Telegram API reachability + token validity.
+    # Returns status only; never exposes the token.
+    import urllib.request, json as _json
+    token = os.getenv("PAYBOT_TOKEN", "")
+    if not token:
+        return jsonify({"ok": False, "error": "PAYBOT_TOKEN not set"}), 500
+    try:
+        req = urllib.request.Request(
+            f"https://api.telegram.org/bot{token}/getMe", method="GET")
+        with urllib.request.urlopen(req, timeout=15) as r:
+            data = _json.loads(r.read().decode())
+        if data.get("ok"):
+            res = data["result"]
+            return jsonify({"ok": True,
+                            "username": res.get("username"),
+                            "bot_id": res.get("id")})
+        return jsonify({"ok": False, "error": "getMe not ok",
+                        "detail": str(data)[:200]}), 502
+    except Exception as e:
+        return jsonify({"ok": False, "error": type(e).__name__,
+                        "detail": str(e)[:300]}), 502
+
+
 @app.route("/terms")
 def terms():
     return L.terms_html()
@@ -311,11 +336,22 @@ if __name__ == "__main__":
     t = threading.Thread(target=poller_loop, daemon=True)
     t.start()
     # To run bot + API in a single process on free hosts like Render:
-    # set RUN_BOT=1 in env
+    # set RUN_BOT=1 in env.
+    # NOTE: the Telegram bot MUST run in the main thread. PTB's run_polling()
+    # uses asyncio signal handlers (loop.set_wakeup_fd), which raise
+    # "RuntimeError: set_wakeup_fd only works in main thread" in any other
+    # thread -> infinite crash loop. So Flask goes to a background thread
+    # and the bot takes the main thread.
     if os.getenv("RUN_BOT", "0") == "1":
+        ft = threading.Thread(
+            target=lambda: app.run(host="0.0.0.0", port=port,
+                                   debug=False, use_reloader=False),
+            daemon=True, name="flask-api")
+        ft.start()
+        print(f"🚀 FamPay Gateway API on http://localhost:{port} (background thread)")
         import bot as botmod
-        bt = threading.Thread(target=botmod.main, daemon=True, name="telegram-bot")
-        bt.start()
-        print("🤖 Telegram bot thread started (RUN_BOT=1)")
-    print(f"🚀 FamPay Gateway API on http://localhost:{port}")
-    app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
+        print("🤖 Telegram bot starting in main thread (RUN_BOT=1)")
+        botmod.main()
+    else:
+        print(f"🚀 FamPay Gateway API on http://localhost:{port}")
+        app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
