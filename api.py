@@ -75,6 +75,9 @@ def api_create_order():
     order, err = C.create_order(api_key, data.get("amount"), data.get("note", ""))
     if not order:
         return jsonify({"success": False, "error": err}), 400
+    merchant = _valid_merchant(api_key)
+    if merchant:
+        notify_new_order(merchant, order)
     return jsonify({
         "success": True,
         "order_id": order["order_id"],
@@ -205,6 +208,36 @@ def notify_merchant_telegram(merchant, order):
         return
     text = (f"✅ Payment received!\n\nAmount: ₹{order['amount_paise']/100:.2f}\n"
             f"Order: {order['order_id']}\nUTR: {order.get('utr') or '-'}")
+    old = {}
+    for k in ("no_proxy", "NO_PROXY"):
+        old[k] = os.environ.pop(k, None)
+    try:
+        requests.post(f"https://api.telegram.org/bot{token}/sendMessage",
+                      json={"chat_id": chat_id, "text": text}, timeout=15)
+    except Exception:
+        pass
+    finally:
+        for k, v in old.items():
+            if v is not None:
+                os.environ[k] = v
+
+
+def notify_new_order(merchant, order):
+    """Tell the merchant a new order/request was created via their API key."""
+    chat_id = merchant.get("owner_id")
+    if not chat_id:
+        return
+    token = C.get_merchant_bot_token(merchant) or BOT_TOKEN
+    if not token:
+        return
+    note = (order.get("note") or "").strip()
+    lines = [f"🆕 New request!\n",
+             f"Order: {order['order_id']}",
+             f"Amount: ₹{order['amount_paise']/100:.2f}"]
+    if note:
+        lines.append(f"Note: {note[:100]}")
+    lines.append(f"Time: {order.get('created_at', '')[:16].replace('T', ' ')}")
+    text = "\n".join(lines)
     old = {}
     for k in ("no_proxy", "NO_PROXY"):
         old[k] = os.environ.pop(k, None)
