@@ -266,6 +266,37 @@ def notify_new_order(merchant, order):
                 os.environ[k] = v
 
 
+# ---------- admin alerts ----------
+_ALERT_LAST = {}  # key -> timestamp of last sent alert (rate limiting)
+
+
+def alert_admin(text, key="generic", min_interval_sec=3600):
+    """Send an alert to the admin via Telegram. Rate-limited per key
+    (default: at most once per hour) to avoid spam."""
+    import time
+    now = time.time()
+    if now - _ALERT_LAST.get(key, 0) < min_interval_sec:
+        return
+    _ALERT_LAST[key] = now
+    admin_id = C.get_admin_id()
+    if not admin_id or not BOT_TOKEN:
+        return
+    old = {}
+    for k in ("no_proxy", "NO_PROXY"):
+        old[k] = os.environ.pop(k, None)
+    try:
+        requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+                      json={"chat_id": int(admin_id),
+                            "text": f"⚠️ FamBridge Alert\n\n{text}"},
+                      timeout=15)
+    except Exception:
+        pass
+    finally:
+        for k, v in old.items():
+            if v is not None:
+                os.environ[k] = v
+
+
 def notify_sub_paid(sub, admin_merchant):
     """Tell the buyer their plan is live + tell the admin about the sale."""
     buyer_id = sub.get("buyer_id")
@@ -358,7 +389,20 @@ def poll_gmail_once():
                 if not C.sender_match(frm + " " + subj):
                     continue
                 body = C.get_email_body(msg)
-                for amount_paise, utr in C.parse_payment_email(frm + "\n" + subj + "\n" + body):
+                parsed = list(C.parse_payment_email(frm + "\n" + subj + "\n" + body))
+                if not parsed:
+                    # FamPay email arrived but we couldn't parse amount/UTR.
+                    # Email format may have changed — alert the admin!
+                    alert_admin(
+                        f"Email parse FAILED!\n\n"
+                        f"From: {frm[:80]}\n"
+                        f"Subject: {subj[:80]}\n"
+                        f"Merchant: {m.get('owner_name', '?')} ({email_addr})\n\n"
+                        f"FamPay may have changed their email format. "
+                        f"Check and update the parser!",
+                        key=f"parse_fail_{api_key}",
+                        min_interval_sec=3600)
+                for amount_paise, utr in parsed:
                     matched = match_and_mark(api_key, m, amount_paise, utr)
                     # Subscription auto-upgrade: only against the admin's own Gmail,
                     # and only if no regular customer order claimed this payment.
@@ -372,6 +416,15 @@ def poll_gmail_once():
             mail.logout()
         except imaplib.IMAP4.error as e:
             print(f"IMAP login/fetch failed for {email_addr}: {e}")
+            alert_admin(
+                f"Gmail connection FAILED!\n\n"
+                f"Email: {email_addr}\n"
+                f"Merchant: {m.get('owner_name', '?')}\n"
+                f"Error: {str(e)[:100]}\n\n"
+                f"Payment verification is STOPPED for this merchant. "
+                f"They may need to reconnect Gmail (App Password expired?)",
+                key=f"imap_fail_{api_key}",
+                min_interval_sec=7200)
         except Exception as e:
             print(f"poll error: {type(e).__name__}: {e}")
     if dirty:
