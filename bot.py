@@ -479,10 +479,18 @@ async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "u_plan":
         key, m = C.get_merchant_by_owner(uid)
         plan, used, limit = C.get_quota(key) if key else ("free", 0, C.PLANS["free"]["quota"])
+        remaining = limit - used
         lines = [f"💳 My Plan: {plan.upper()}\n",
-                 f"Used: {used}/{limit} payment requests this month",
-                 "Counter resets on the 1st of every month.\n",
-                 "Plans (monthly):"]
+                 f"📊 Usage this month:",
+                 f"   ✔ Used: {used} requests",
+                 f"   📦 Remaining: {remaining} requests",
+                 f"   (Total: {limit})"]
+        if remaining <= 0:
+            lines.append("   ⛔ Quota over! Upgrade to continue.")
+        elif remaining <= limit * 0.2:
+            lines.append("   ⚠️ Low quota — consider upgrading!")
+        lines += ["Counter resets on the 1st of every month.\n",
+                  "Plans (monthly):"]
         for p in C.PLAN_ORDER:
             mark = " ← current" if p == plan else ""
             lines.append(f"• {p.upper()} — {C.PLANS[p]['quota']} requests — ₹{C.PLANS[p]['price']}{mark}")
