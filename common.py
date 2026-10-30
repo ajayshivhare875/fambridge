@@ -14,6 +14,7 @@ import json
 import io
 import base64
 import secrets
+import random
 import urllib.parse
 from datetime import datetime, timedelta
 
@@ -484,6 +485,25 @@ def make_qr_base64(text):
 
 
 # ---------- orders ----------
+def _unique_amount_paise(api_key, base_paise, orders):
+    """Make the QR amount unique to prevent collision when two customers
+    pay the same amount at the same time. Subtracts a small random paise
+    (1-50, capped at 5% for small amounts) so the customer pays slightly
+    LESS -- no confusion, no extra charge. Retries until the amount doesn't
+    clash with another pending order from the same merchant."""
+    max_reduce = min(50, max(1, base_paise // 20))
+    pending_amounts = {
+        o.get("amount_paise") for o in orders.values()
+        if o.get("api_key") == api_key and o.get("status") == "pending"
+    }
+    for _ in range(20):
+        reduction = random.randint(1, max_reduce)
+        candidate = base_paise - reduction
+        if candidate > 0 and candidate not in pending_amounts:
+            return candidate
+    return base_paise  # fallback: extremely rare
+
+
 def create_order(api_key, amount_rupees, note=""):
     merchants = load_json(MERCHANTS_FILE, {})
     m = merchants.get(api_key)
@@ -504,12 +524,17 @@ def create_order(api_key, amount_rupees, note=""):
     amount_paise = int(round(amount * 100))
     order_id = "ord_" + secrets.token_hex(6)
     now = datetime.now()
-    upi_link = make_upi_link(m["upi_id"], m.get("owner_name", "Merchant"), amount, order_id, note)
+    orders = load_json(ORDERS_FILE, {})
+    # Unique QR amount: slightly less, unique per pending order
+    qr_paise = _unique_amount_paise(api_key, amount_paise, orders)
+    qr_amount = qr_paise / 100
+    upi_link = make_upi_link(m["upi_id"], m.get("owner_name", "Merchant"), qr_amount, order_id, note)
     order = {
         "order_id": order_id,
         "api_key": api_key,
         "merchant_id": str(m.get("owner_id")),
-        "amount_paise": amount_paise,
+        "amount_paise": qr_paise,
+        "requested_amount_paise": amount_paise,
         "note": note or "",
         "upi_link": upi_link,
         "status": "pending",
@@ -518,7 +543,6 @@ def create_order(api_key, amount_rupees, note=""):
         "paid_at": "",
         "utr": "",
     }
-    orders = load_json(ORDERS_FILE, {})
     orders[order_id] = order
     save_json(ORDERS_FILE, orders)
     bump_quota(api_key)
