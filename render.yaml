@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: fampay-gateway
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python api.py
+    envVars:
+      - key: RUN_BOT
+        value: 1
+      - key: PYTHONUNBUFFERED
+        value: 1
+      # Render PORT khud set karta hai. Baaki ye Render dashboard me daalo:
+      # PAYBOT_TOKEN, ADMIN_ID
