@@ -439,8 +439,22 @@ def expire_sub_orders():
                     changed = True
             except Exception:
                 pass
+    # Auto-delete sub-orders older than 30 days
+    cutoff = now - timedelta(days=30)
+    old_ids = [sid for sid, s in subs.items()
+               if _safe_old(s.get("created_at", ""), cutoff)]
+    for sid in old_ids:
+        del subs[sid]
+        changed = True
     if changed:
         save_json(SUBORDERS_FILE, subs)
+
+
+def _safe_old(created_at_str, cutoff):
+    try:
+        return datetime.fromisoformat(created_at_str) < cutoff
+    except Exception:
+        return False
 
 
 # ---------- UPI ----------
@@ -543,6 +557,20 @@ def expire_old_orders():
                     changed = True
             except Exception:
                 pass
+    # Auto-delete orders older than 30 days (keeps DB small, enough for disputes)
+    cutoff = now - timedelta(days=30)
+    old_ids = []
+    for oid, o in orders.items():
+        try:
+            if datetime.fromisoformat(o.get("created_at", "")) < cutoff:
+                old_ids.append(oid)
+        except Exception:
+            pass
+    for oid in old_ids:
+        del orders[oid]
+        changed = True
+    if old_ids:
+        print(f"[cleanup] deleted {len(old_ids)} orders older than 30 days", flush=True)
     if changed:
         save_json(ORDERS_FILE, orders)
 
