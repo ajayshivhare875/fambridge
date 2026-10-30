@@ -20,8 +20,10 @@ from dotenv import load_dotenv
 
 import common as C
 import starter_code as SC
+import legal as L
 
 load_dotenv()
+PUBLIC_URL = os.environ.get("PUBLIC_URL", "").rstrip("/")
 BOT_TOKEN = os.getenv("PAYBOT_TOKEN") or os.getenv("TELEGRAM_BOT_TOKEN")
 
 
@@ -126,8 +128,17 @@ def user_panel_kb():
          InlineKeyboardButton("📊 My Stats", callback_data="u_usage")],
         [InlineKeyboardButton("💳 My Plan", callback_data="u_plan"),
          InlineKeyboardButton("📖 Integration Guide", callback_data="u_guide")],
-        [InlineKeyboardButton("🆘 Support", callback_data="u_support")],
+        [InlineKeyboardButton("🆘 Support", callback_data="u_support"),
+         InlineKeyboardButton("📜 Terms & Privacy", callback_data="u_legal")],
         [InlineKeyboardButton("⬅️ Back", callback_data="menu_main")],
+    ])
+
+
+def legal_kb():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📜 Terms of Service", callback_data="u_terms"),
+         InlineKeyboardButton("🔒 Privacy Policy", callback_data="u_privacy")],
+        [InlineKeyboardButton("⬅️ Back", callback_data="menu_user")],
     ])
 
 
@@ -510,6 +521,21 @@ async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "💬 DM us: @magsupportchat_bot\n\n"
             "Plan upgrades, payment issues, or anything else — we're here to help!",
             reply_markup=user_panel_kb())
+    elif data == "u_legal":
+        await q.edit_message_text(
+            "📜 Legal\n\n"
+            "Please read our Terms of Service and Privacy Policy before using FamBridge.",
+            reply_markup=legal_kb())
+    elif data == "u_terms":
+        text = L.TERMS_TEXT
+        if PUBLIC_URL:
+            text += f"\n\n🌐 Full version: {PUBLIC_URL}/terms"
+        await q.edit_message_text(text, reply_markup=legal_kb())
+    elif data == "u_privacy":
+        text = L.PRIVACY_TEXT
+        if PUBLIC_URL:
+            text += f"\n\n🌐 Full version: {PUBLIC_URL}/privacy"
+        await q.edit_message_text(text, reply_markup=legal_kb())
     elif data == "u_testorder":
         key, m = C.get_merchant_by_owner(uid)
         if not key:

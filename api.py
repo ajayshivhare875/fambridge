@@ -20,6 +20,7 @@ from flask import Flask, request, jsonify
 from dotenv import load_dotenv
 
 import common as C
+import legal as L
 
 load_dotenv()
 
@@ -111,7 +112,18 @@ def api_order_status():
 @app.route("/")
 def index():
     return jsonify({"service": "FamPay Auto-Verification Gateway",
-                    "endpoints": ["/api/create_order", "/api/order_status"]})
+                    "endpoints": ["/api/create_order", "/api/order_status",
+                                  "/terms", "/privacy"]})
+
+
+@app.route("/terms")
+def terms():
+    return L.terms_html()
+
+
+@app.route("/privacy")
+def privacy():
+    return L.privacy_html()
 
 
 # ---------- webhook + telegram notify ----------
