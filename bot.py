@@ -136,6 +136,18 @@ def send_via_token(token, chat_id, text):
         return False
 
 
+def _get_gateway_uptime():
+    """Fetch gateway uptime from the /health endpoint. Returns string like '2d 5h 23m'."""
+    base = PUBLIC_URL or "https://fambridge.onrender.com"
+    try:
+        req = urllib.request.Request(f"{base}/health", method="GET")
+        with urllib.request.urlopen(req, timeout=10) as r:
+            d = json.load(r)
+        return d.get("uptime", "?") if d.get("ok") else "?"
+    except Exception:
+        return "unreachable"
+
+
 # ---------- user_data backed by disk (pending input survives restarts) ----------
 def _ud(context, uid):
     if not context.user_data:
@@ -648,9 +660,11 @@ async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         orders = C.load_json(C.ORDERS_FILE, {})
         paid = [o for o in orders.values() if o["status"] == "paid"]
         rev = sum(o["amount_paise"] for o in paid) / 100
+        uptime = _get_gateway_uptime()
         await q.edit_message_text(
             f"📊 Stats:\n\n👥 Users: {len(users)}\n🏪 Merchants: {len(merchants)}\n"
-            f"🧾 Orders: {len(orders)} (paid: {len(paid)})\n💰 Revenue: ₹{rev:.2f}",
+            f"🧾 Orders: {len(orders)} (paid: {len(paid)})\n💰 Revenue: ₹{rev:.2f}\n"
+            f"⏱️ Uptime: {uptime}",
             reply_markup=admin_panel_kb())
     elif data == "a_merchants":
         if not C.is_admin(uid):
