@@ -130,8 +130,34 @@ def api_order_status():
 @app.route("/")
 def index():
     return jsonify({"service": "FamPay Auto-Verification Gateway",
+                    "uptime": _uptime_str(),
                     "endpoints": ["/api/create_order", "/api/order_status",
-                                  "/terms", "/privacy"]})
+                                  "/terms", "/privacy", "/health"]})
+
+
+START_TIME = datetime.now()
+
+
+def _uptime_str():
+    delta = datetime.now() - START_TIME
+    days = delta.days
+    hours, rem = divmod(delta.seconds, 3600)
+    mins, secs = divmod(rem, 60)
+    if days:
+        return f"{days}d {hours}h {mins}m"
+    if hours:
+        return f"{hours}h {mins}m {secs}s"
+    if mins:
+        return f"{mins}m {secs}s"
+    return f"{secs}s"
+
+
+@app.route("/health")
+def health():
+    return jsonify({"ok": True,
+                    "service": "FamBridge",
+                    "uptime": _uptime_str(),
+                    "started_at": START_TIME.isoformat()})
 
 
 @app.route("/debug/telegram")
