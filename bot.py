@@ -254,6 +254,8 @@ GUIDE = """📖 Integration Guide - FamPay auto-verification for your bot or web
 
 🌐 Your Gateway URL: {BASE}
 
+🧪 Try it live first! Open our test bot @Teisgsksbtes_bot — it sells a Rs.1 test product through this gateway so you can see the full payment flow (QR -> pay -> auto-verify -> delivery) before integrating.
+
 STEP 1: One-time setup (in this bot)
 User Panel > Connect Gmail (the SAME Gmail linked to your FamPay account + App Password)
 User Panel > Set UPI ID (your FamPay UPI ID, e.g. name@fam)
