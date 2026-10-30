@@ -61,8 +61,20 @@ def _ip_limited():
     return None
 
 
-@app.route("/api/create_order", methods=["POST"])
+@app.after_request
+def _cors_headers(response):
+    # Allow browser-based integrations (demo pages, merchant websites)
+    # to call the API directly.
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-API-Key"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    return response
+
+
+@app.route("/api/create_order", methods=["POST", "OPTIONS"])
 def api_create_order():
+    if request.method == "OPTIONS":
+        return "", 204
     limited = _ip_limited()
     if limited:
         return limited
@@ -88,8 +100,10 @@ def api_create_order():
     })
 
 
-@app.route("/api/order_status", methods=["GET"])
+@app.route("/api/order_status", methods=["GET", "OPTIONS"])
 def api_order_status():
+    if request.method == "OPTIONS":
+        return "", 204
     limited = _ip_limited()
     if limited:
         return limited
