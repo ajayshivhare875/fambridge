@@ -27,6 +27,60 @@ PUBLIC_URL = os.environ.get("PUBLIC_URL", "").rstrip("/")
 BOT_TOKEN = os.getenv("PAYBOT_TOKEN") or os.getenv("TELEGRAM_BOT_TOKEN")
 
 
+# ---------- force join ----------
+FORCE_JOIN_CHANNEL = "@magservicesbots"
+FORCE_JOIN_URL = "https://t.me/magservicesbots"
+
+
+def is_channel_member(user_id):
+    """Check via getChatMember if the user joined the force-join channel.
+    Returns True on any API error (fail open) so a misconfigured channel
+    never locks everyone out. The bot must be an admin of the channel."""
+    try:
+        req = urllib.request.Request(
+            f"https://api.telegram.org/bot{BOT_TOKEN}/getChatMember",
+            data=json.dumps({"chat_id": FORCE_JOIN_CHANNEL,
+                             "user_id": user_id}).encode(),
+            headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            d = json.load(r)
+        if d.get("ok"):
+            return d["result"].get("status", "") in (
+                "creator", "administrator", "member", "restricted")
+        return True
+    except Exception:
+        return True
+
+
+def force_join_kb():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📢 Join Channel", url=FORCE_JOIN_URL)],
+        [InlineKeyboardButton("✅ I've Joined", callback_data="check_joined")],
+    ])
+
+
+async def require_channel_member(update, context):
+    """True if the user may proceed, False if they were shown the join prompt."""
+    user = update.effective_user
+    if C.is_admin(user.id):
+        return True
+    if is_channel_member(user.id):
+        return True
+    text = ("🔒 Please join our channel first!\n\n"
+            "To use this bot, you must join our official channel.\n"
+            "Tap the button below to join, then tap 'I've Joined'.")
+    if update.callback_query:
+        q = update.callback_query
+        await q.answer()
+        try:
+            await q.edit_message_text(text, reply_markup=force_join_kb())
+        except Exception:
+            await q.message.reply_text(text, reply_markup=force_join_kb())
+    elif update.message:
+        await update.message.reply_text(text, reply_markup=force_join_kb())
+    return False
+
+
 # ---------- helpers ----------
 def register_user(user):
     users = C.load_json(C.USERS_FILE, {})
@@ -318,6 +372,8 @@ def _subscriptions_view():
 # ---------- commands ----------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+    if not await require_channel_member(update, context):
+        return
     _clear_ud(context, user.id)  # /start cancels any pending input
     C.ensure_admin(user.id)
     register_user(user)
@@ -336,6 +392,20 @@ async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     uid = user.id
     data = q.data
+
+    # "I've Joined" button: re-check membership, then show main menu or prompt again
+    if data == "check_joined":
+        if C.is_admin(uid) or is_channel_member(uid):
+            await q.edit_message_text("Main menu:", reply_markup=main_menu_kb(uid))
+        else:
+            await q.edit_message_text(
+                "🔒 You haven't joined yet!\n\n"
+                "Please join our channel first, then tap 'I've Joined'.",
+                reply_markup=force_join_kb())
+        return
+
+    if not await require_channel_member(update, context):
+        return
     register_user(user)
 
     if data == "menu_main":
@@ -670,6 +740,8 @@ async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     uid = user.id
+    if not await require_channel_member(update, context):
+        return
     text = (update.message.text or "").strip()
     register_user(user)
 
