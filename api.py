@@ -96,6 +96,7 @@ def api_create_order():
         "upi_link": order["upi_link"],
         "qr_base64": C.make_qr_base64(order["upi_link"]),
         "amount_paise": order["amount_paise"],
+        "requested_amount_paise": order.get("requested_amount_paise", order["amount_paise"]),
         "expires_in_sec": C.ORDER_EXPIRY_MIN * 60,
     })
 
