@@ -198,6 +198,8 @@ def guide_kb():
 
 GUIDE = """📖 Integration Guide - FamPay auto-verification for your bot or website
 
+🌐 Your Gateway URL: {BASE}
+
 STEP 1: One-time setup (in this bot)
 User Panel > Connect Gmail (the SAME Gmail linked to your FamPay account + App Password)
 User Panel > Set UPI ID (your FamPay UPI ID, e.g. name@fam)
