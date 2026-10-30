@@ -19,6 +19,8 @@ from datetime import datetime, timedelta
 
 from cryptography.fernet import Fernet
 
+import db_store  # Supabase/Postgres backend; falls back to files when DATABASE_URL is unset
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -47,8 +49,29 @@ PLANS = {
 PLAN_ORDER = ["free", "starter", "best", "premium"]
 
 
-# ---------- json storage ----------
+# ---------- json storage (Supabase kv_store when DATABASE_URL is set, else files) ----------
+_MISSING = object()
+
+
+def _doc_key(path):
+    return os.path.basename(path)
+
+
 def load_json(path, default):
+    if db_store.db_enabled():
+        val = db_store.db_load(_doc_key(path), _MISSING)
+        if val is not _MISSING:
+            return val
+        # One-time seed: a local file left behind (e.g. VM backup) seeds the DB.
+        if os.path.exists(path):
+            try:
+                with open(path, "r") as f:
+                    file_data = json.load(f)
+                db_store.db_save(_doc_key(path), file_data)
+                return file_data
+            except Exception:
+                pass
+        return default
     if os.path.exists(path):
         try:
             with open(path, "r") as f:
@@ -59,6 +82,9 @@ def load_json(path, default):
 
 
 def save_json(path, data):
+    if db_store.db_enabled() and db_store.db_save(_doc_key(path), data):
+        return
+    # DB unset or unreachable -> keep the file copy so nothing is ever lost.
     with open(path, "w") as f:
         json.dump(data, f, indent=2)
     try:
@@ -72,9 +98,16 @@ def _get_fernet():
     key = os.getenv("PAYMENTS_FERNET_KEY", "").strip()
     if key:
         return Fernet(key.encode())
+    if db_store.db_enabled():
+        db_key = db_store.db_get_fernet_key()
+        if db_key:
+            return Fernet(db_key)
     if os.path.exists(FERNET_KEY_FILE):
-        with open(FERNET_KEY_FILE, "rb") as f:
-            return Fernet(f.read().strip())
+        file_key = open(FERNET_KEY_FILE, "rb").read().strip()
+        if db_store.db_enabled():
+            # Persist so future redeploys can still decrypt stored secrets.
+            db_store.db_set_fernet_key(file_key)
+        return Fernet(file_key)
     new_key = Fernet.generate_key()
     with open(FERNET_KEY_FILE, "wb") as f:
         f.write(new_key)
@@ -82,6 +115,8 @@ def _get_fernet():
         os.chmod(FERNET_KEY_FILE, 0o600)
     except Exception:
         pass
+    if db_store.db_enabled():
+        db_store.db_set_fernet_key(new_key)
     return Fernet(new_key)
 
 
