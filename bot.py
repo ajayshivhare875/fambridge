@@ -796,6 +796,11 @@ def _build_app():
     return app
 
 
+# Diagnostic: tracks the polling loop state for /debug/polling.
+POLL_STATUS = {"state": "starting", "last_error": None,
+               "retries": 0, "started_at": None}
+
+
 def main():
     if not BOT_TOKEN:
         print("❌ Set PAYBOT_TOKEN in .env")
@@ -814,15 +819,24 @@ def main():
     # which breaks the loop so restarts actually stop the bot.
     import time as _time
     import asyncio as _asyncio
+    import datetime as _dt
+    POLL_STATUS["started_at"] = _dt.datetime.utcnow().isoformat() + "Z"
     while True:
         try:
             print("🤖 FamPay Gateway Bot running...")
+            POLL_STATUS["state"] = "polling"
+            POLL_STATUS["last_error"] = None
             _asyncio.set_event_loop(_asyncio.new_event_loop())
             _build_app().run_polling(bootstrap_retries=-1, close_loop=False)
+            POLL_STATUS["state"] = "stopped_clean"
             break
         except (KeyboardInterrupt, SystemExit):
+            POLL_STATUS["state"] = "stopped_clean"
             break
         except Exception as e:
+            POLL_STATUS["state"] = "retrying"
+            POLL_STATUS["last_error"] = f"{type(e).__name__}: {e}"[:300]
+            POLL_STATUS["retries"] += 1
             print(f"bot crashed ({type(e).__name__}: {e}) — restarting in 15s")
         _time.sleep(15)
 
