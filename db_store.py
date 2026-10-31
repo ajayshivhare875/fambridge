@@ -26,6 +26,10 @@ import threading
 FERNET_DB_KEY = "fernet.key"
 
 _MISSING = object()
+# Sentinel: the database was unreachable. This is NOT the same as "key absent"
+# (_MISSING). Callers must never treat _DB_ERROR as empty data, otherwise a
+# transient outage permanently overwrites real rows with defaults.
+_DB_ERROR = object()
 _logged_ok = False
 
 # Connection pool: creating a fresh psycopg2 connection per query was taking
@@ -109,7 +113,7 @@ def db_load(key, default=_MISSING):
                 _reset_pool()
                 continue
             print(f"[db_store] load failed for {key!r}: {e}", file=sys.stderr, flush=True)
-            return default
+            return _DB_ERROR
 
 
 def db_save(key, data):
@@ -148,8 +152,11 @@ def db_save(key, data):
 
 
 def db_get_fernet_key():
-    """Return the persisted Fernet key bytes, or None."""
+    """Return the persisted Fernet key bytes, None when absent,
+    or _DB_ERROR when the database was unreachable."""
     raw = db_load(FERNET_DB_KEY, None)
+    if raw is _DB_ERROR:
+        return _DB_ERROR
     if not raw:
         return None
     try:
