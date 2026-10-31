@@ -7,6 +7,8 @@ Plain-text messages only (no Markdown) to avoid parse errors.
 import os
 import io
 import json
+import time
+import asyncio
 import imaplib
 import urllib.request
 from datetime import datetime
@@ -32,10 +34,20 @@ FORCE_JOIN_CHANNEL = "@magservicesbots"
 FORCE_JOIN_URL = "https://t.me/magservicesbots"
 
 
+# Cache channel membership: user_id -> (is_member, timestamp).
+# is_channel_member() does a BLOCKING urllib call — calling it directly from
+# async handlers freezes the whole bot event loop (this was making every
+# button press feel slow). The cached async wrapper below runs it in a thread
+# and caches results for 5 minutes.
+_member_cache = {}
+MEMBER_CACHE_TTL = 300  # seconds
+
+
 def is_channel_member(user_id):
     """Check via getChatMember if the user joined the force-join channel.
     Returns True on any API error (fail open) so a misconfigured channel
-    never locks everyone out. The bot must be an admin of the channel."""
+    never locks everyone out. The bot must be an admin of the channel.
+    NOTE: blocking call — always use is_channel_member_cached() from async code."""
     try:
         req = urllib.request.Request(
             f"https://api.telegram.org/bot{BOT_TOKEN}/getChatMember",
@@ -52,6 +64,18 @@ def is_channel_member(user_id):
         return True
 
 
+async def is_channel_member_cached(user_id):
+    """Async wrapper: runs the blocking check in a thread + 5-min cache.
+    Use this from all async handlers instead of is_channel_member()."""
+    now = time.time()
+    hit = _member_cache.get(user_id)
+    if hit and now - hit[1] < MEMBER_CACHE_TTL:
+        return hit[0]
+    result = await asyncio.to_thread(is_channel_member, user_id)
+    _member_cache[user_id] = (result, now)
+    return result
+
+
 def force_join_kb():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("📢 Join Channel", url=FORCE_JOIN_URL)],
@@ -64,7 +88,7 @@ async def require_channel_member(update, context):
     user = update.effective_user
     if C.is_admin(user.id):
         return True
-    if is_channel_member(user.id):
+    if await is_channel_member_cached(user.id):
         return True
     text = ("🔒 Please join our channel first!\n\n"
             "To use this bot, you must join our official channel.\n"
@@ -409,7 +433,7 @@ async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # "I've Joined" button: re-check membership, then show main menu or prompt again
     if data == "check_joined":
-        if C.is_admin(uid) or is_channel_member(uid):
+        if C.is_admin(uid) or await is_channel_member_cached(uid):
             await q.edit_message_text("Main menu:", reply_markup=main_menu_kb(uid))
         else:
             await q.edit_message_text(
