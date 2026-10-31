@@ -520,16 +520,22 @@ def make_qr_base64(text):
 
 # ---------- orders ----------
 def _unique_amount_paise(api_key, base_paise, orders):
-    """Make the QR amount unique to prevent collision when two customers
-    pay the same amount at the same time. Subtracts a small random paise
-    (1-50, capped at 5% for small amounts) so the customer pays slightly
-    LESS -- no confusion, no extra charge. Retries until the amount doesn't
-    clash with another pending order from the same merchant."""
-    max_reduce = min(50, max(1, base_paise // 20))
+    """QR amount for a new order. Uses the EXACT requested amount when no
+    other pending order from this merchant has the same amount (clean UX).
+    Only when a collision risk exists (another pending order with the same
+    amount) it subtracts a small random paise (1-50, capped at 5% for small
+    amounts) so the customer pays slightly LESS -- no confusion, no extra
+    charge. Retries until the amount doesn't clash with another pending
+    order from the same merchant."""
     pending_amounts = {
         o.get("amount_paise") for o in orders.values()
         if o.get("api_key") == api_key and o.get("status") == "pending"
     }
+    # No collision: exact amount, no reduction
+    if base_paise not in pending_amounts:
+        return base_paise
+    # Collision risk: reduce until unique
+    max_reduce = min(50, max(1, base_paise // 20))
     for _ in range(20):
         reduction = random.randint(1, max_reduce)
         candidate = base_paise - reduction
