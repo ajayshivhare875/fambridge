@@ -210,7 +210,14 @@ def debug_gmail_check():
         import db_store as _ds
         test_val = _ds.db_load(_ds.FERNET_DB_KEY, "DEFAULT_SENTINEL")
         if test_val is _ds._DB_ERROR:
-            out.append({"_diag": "db_load(fernet.key) returned _DB_ERROR"})
+            # Capture the actual exception
+            try:
+                _conn = _ds._connect()
+                _conn.close()
+                out.append({"_diag": "db_load returned _DB_ERROR but _connect() works!?"})
+            except Exception as ce:
+                import traceback as _tb
+                out.append({"_diag": f"_connect() FAILED: {type(ce).__name__}: {ce}\n{_tb.format_exc()[:800]}"})
         elif test_val == "DEFAULT_SENTINEL":
             out.append({"_diag": "db_load(fernet.key) returned default (key absent?)"})
         else:
