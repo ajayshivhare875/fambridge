@@ -802,7 +802,7 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         email_addr = _pop_ud(context, uid, "tmp_gmail", "")
         app_pass = text.replace(" ", "")
         await update.message.reply_text("⏳ Checking Gmail...")
-        if not check_gmail_login(email_addr, app_pass):
+        if not await asyncio.to_thread(check_gmail_login, email_addr, app_pass):
             _set_ud(context, uid, "awaiting_gmail_email")
             await update.message.reply_text(
                 "❌ Gmail login failed. Email or App Password is wrong.\nSend the email again, or /start to cancel.")
@@ -870,7 +870,7 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if _pop_ud(context, uid, "awaiting_bot_token"):
-        ok, username, fname = validate_bot_token(text)
+        ok, username, fname = await asyncio.to_thread(validate_bot_token, text)
         if not ok:
             _set_ud(context, uid, "awaiting_bot_token")
             await update.message.reply_text(
