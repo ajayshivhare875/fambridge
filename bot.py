@@ -162,7 +162,7 @@ def send_via_token(token, chat_id, text):
 
 def _get_gateway_uptime():
     """Fetch gateway uptime from the /health endpoint. Returns string like '2d 5h 23m'."""
-    base = PUBLIC_URL or "https://fambridge.onrender.com"
+    base = PUBLIC_URL or "https://fambridge-gateway.onrender.com"
     try:
         req = urllib.request.Request(f"{base}/health", method="GET")
         with urllib.request.urlopen(req, timeout=10) as r:
@@ -364,7 +364,7 @@ Note: the public API URL depends on your server.
 Gmail App Password: Google Account > Security > 2-Step Verification > App passwords.
 """
 
-BASE_NOTE = PUBLIC_URL or "https://fambridge.onrender.com"
+BASE_NOTE = PUBLIC_URL or "https://fambridge-gateway.onrender.com"
 
 
 def _merchants_view():
