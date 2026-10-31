@@ -519,27 +519,6 @@ def make_qr_base64(text):
 
 
 # ---------- orders ----------
-def _unique_amount_paise(api_key, base_paise, orders):
-    """QR amount for a new order. Uses the EXACT requested amount when no
-    other pending order from this merchant has the same amount (clean UX).
-    Only when a collision risk exists (another pending order with the same
-    amount) it subtracts the SMALLEST possible paise (1, then 2, ...) until
-    unique -- so the customer pays minimally less, never a random cut."""
-    pending_amounts = {
-        o.get("amount_paise") for o in orders.values()
-        if o.get("api_key") == api_key and o.get("status") == "pending"
-    }
-    # No collision: exact amount, no reduction
-    if base_paise not in pending_amounts:
-        return base_paise
-    # Collision risk: smallest reduction that stays unique (1 paisa first)
-    for reduction in range(1, 51):
-        candidate = base_paise - reduction
-        if candidate > 0 and candidate not in pending_amounts:
-            return candidate
-    return base_paise  # fallback: extremely rare
-
-
 def create_order(api_key, amount_rupees, note=""):
     merchants = load_json(MERCHANTS_FILE, {})
     m = merchants.get(api_key)
@@ -561,8 +540,8 @@ def create_order(api_key, amount_rupees, note=""):
     order_id = "ord_" + secrets.token_hex(6)
     now = datetime.now()
     orders = load_json(ORDERS_FILE, {})
-    # Unique QR amount: slightly less, unique per pending order
-    qr_paise = _unique_amount_paise(api_key, amount_paise, orders)
+    # QR uses the exact requested amount (unique-amount feature removed per user request)
+    qr_paise = amount_paise
     qr_amount = qr_paise / 100
     upi_link = make_upi_link(m["upi_id"], m.get("owner_name", "Merchant"), qr_amount, order_id, note)
     order = {
