@@ -10,6 +10,7 @@ import json
 import time
 import hmac
 import hashlib
+import threading
 import imaplib
 import email
 import threading
@@ -89,7 +90,9 @@ def api_create_order():
         return jsonify({"success": False, "error": err}), 400
     merchant = _valid_merchant(api_key)
     if merchant:
-        notify_new_order(merchant, order)
+        # Send Telegram notification in background — don't block the API response
+        threading.Thread(target=notify_new_order, args=(merchant, order),
+                         daemon=True).start()
     return jsonify({
         "success": True,
         "order_id": order["order_id"],
@@ -208,6 +211,7 @@ def debug_gmail_check():
     # Diagnostic: test db_load for fernet.key directly
     try:
         import db_store as _ds
+        import json as _json
         # Step-by-step manual replication of db_load to find the failing step
         steps = []
         try:
@@ -220,17 +224,26 @@ def debug_gmail_check():
                 steps.append("execute OK")
                 _row = _cur.fetchone()
                 steps.append(f"fetchone OK, row={'None' if _row is None else 'present'}")
+                if _row is not None:
+                    _v = _row[0]
+                    steps.append(f"row[0] type={type(_v).__name__}")
+                    if isinstance(_v, str):
+                        try:
+                            _parsed = _json.loads(_v)
+                            steps.append(f"json.loads OK, parsed type={type(_parsed).__name__}")
+                        except Exception as je:
+                            steps.append(f"json.loads FAILED: {type(je).__name__}: {je}")
+                            steps.append(f"raw value preview: {_v[:50]!r}")
+                    else:
+                        steps.append(f"not a string, returning as-is")
                 _cur.close()
             finally:
                 _conn.close()
                 steps.append("close OK")
         except Exception as se:
             import traceback as _tb
-            steps.append(f"FAILED at step {len(steps)+1}: {type(se).__name__}: {se}")
-            steps.append(_tb.format_exc()[:600])
+            steps.append(f"FAILED: {type(se).__name__}: {se}")
         out.append({"_diag": " | ".join(steps)})
-        test_val = _ds.db_load(_ds.FERNET_DB_KEY, "DEFAULT_SENTINEL")
-        out.append({"_diag2": f"db_load result: {'_DB_ERROR' if test_val is _ds._DB_ERROR else type(test_val).__name__}"})
     except Exception as e:
         out.append({"_diag": f"diag raised: {type(e).__name__}: {e}"})
     try:
