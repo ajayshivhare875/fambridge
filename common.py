@@ -519,6 +519,39 @@ def make_qr_base64(text):
 
 
 # ---------- orders ----------
+def _unique_amount_paise(api_key, base_paise, orders):
+    """QR amount for a new order. Uses the EXACT requested amount normally.
+    Only when another order for the SAME amount was created within the last
+    3 minutes ("same time") does it subtract the SMALLEST possible paise
+    (1, then 2, ...) until unique -- so the customer pays minimally less.
+    An older pending order doesn't trigger reduction (not "same time")."""
+    now = datetime.now()
+    window_start = now - timedelta(minutes=3)
+    recent_amounts = set()
+    for o in orders.values():
+        if o.get("api_key") != api_key or o.get("status") != "pending":
+            continue
+        try:
+            created = datetime.fromisoformat(o.get("created_at", ""))
+        except (ValueError, TypeError):
+            continue
+        if created >= window_start:
+            recent_amounts.add(o.get("amount_paise"))
+    # No same-time collision: exact amount, no reduction
+    if base_paise not in recent_amounts:
+        return base_paise
+    # Same-time collision: smallest reduction that stays unique vs ALL pending
+    pending_amounts = {
+        o.get("amount_paise") for o in orders.values()
+        if o.get("api_key") == api_key and o.get("status") == "pending"
+    }
+    for reduction in range(1, 51):
+        candidate = base_paise - reduction
+        if candidate > 0 and candidate not in pending_amounts:
+            return candidate
+    return base_paise  # fallback: extremely rare
+
+
 def create_order(api_key, amount_rupees, note=""):
     merchants = load_json(MERCHANTS_FILE, {})
     m = merchants.get(api_key)
@@ -540,8 +573,8 @@ def create_order(api_key, amount_rupees, note=""):
     order_id = "ord_" + secrets.token_hex(6)
     now = datetime.now()
     orders = load_json(ORDERS_FILE, {})
-    # QR uses the exact requested amount (unique-amount feature removed per user request)
-    qr_paise = amount_paise
+    # QR amount: exact normally; -1 paisa only on same-time collision
+    qr_paise = _unique_amount_paise(api_key, amount_paise, orders)
     qr_amount = qr_paise / 100
     upi_link = make_upi_link(m["upi_id"], m.get("owner_name", "Merchant"), qr_amount, order_id, note)
     order = {
