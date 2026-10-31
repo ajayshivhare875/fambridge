@@ -21,25 +21,59 @@ import base64
 import json
 import os
 import sys
+import threading
 
 FERNET_DB_KEY = "fernet.key"
 
 _MISSING = object()
 _logged_ok = False
 
+# Connection pool: creating a fresh psycopg2 connection per query was taking
+# ~800ms each (Supabase pooler handshake), making every bot button press take
+# 2-3 seconds. Reusing pooled connections cuts this to ~100ms per query.
+_pool = None
+_pool_lock = threading.Lock()
+
+
+def _get_pool():
+    global _pool
+    if _pool is None:
+        with _pool_lock:
+            if _pool is None:
+                import psycopg2.pool
+                _pool = psycopg2.pool.ThreadedConnectionPool(
+                    1, 5, os.environ["DATABASE_URL"], connect_timeout=10)
+    return _pool
+
+
+def _get_conn():
+    return _get_pool().getconn()
+
+
+def _put_conn(conn, close=False):
+    try:
+        if close:
+            _get_pool().putconn(conn, close=True)
+        else:
+            _get_pool().putconn(conn)
+    except Exception:
+        pass
+
+
+def _reset_pool():
+    global _pool
+    with _pool_lock:
+        if _pool is not None:
+            try:
+                _pool.closeall()
+            except Exception:
+                pass
+            _pool = None
+
 
 def db_enabled():
     """True when a Postgres URL is configured."""
     return bool(os.getenv("DATABASE_URL", "").strip())
-
-
-def _connect():
-    # Lazy import: file-mode keeps working even if psycopg2 is not installed.
-    # Fresh short-lived connection per call: safe on Render free + Supabase pooler,
-    # no stale-connection surprises across redeploys/restarts.
-    import psycopg2
-
-    return psycopg2.connect(os.environ["DATABASE_URL"], connect_timeout=10)
 
 
 def _note_ok_once():
@@ -53,32 +87,39 @@ def db_load(key, default=_MISSING):
     """Return the stored JSON value for key, or `default` when absent/unreachable."""
     if not db_enabled():
         return default
-    try:
-        conn = _connect()
+    for attempt in (1, 2):
+        conn = None
         try:
+            conn = _get_conn()
             with conn.cursor() as cur:
                 cur.execute("SELECT value FROM kv_store WHERE key = %s", (key,))
                 row = cur.fetchone()
-        finally:
-            conn.close()
-        if row is None:
+            _put_conn(conn)
+            if row is None:
+                return default
+            _note_ok_once()
+            v = row[0]
+            # psycopg2 usually returns jsonb already parsed; handle raw text too.
+            return json.loads(v) if isinstance(v, str) else v
+        except Exception as e:  # DB down/misconfigured -> caller falls back to files
+            if conn is not None:
+                _put_conn(conn, close=True)
+            if attempt == 1:
+                # Stale pooled connection? Reset pool and retry once.
+                _reset_pool()
+                continue
+            print(f"[db_store] load failed for {key!r}: {e}", file=sys.stderr, flush=True)
             return default
-        _note_ok_once()
-        v = row[0]
-        # psycopg2 usually returns jsonb already parsed; handle raw text too.
-        return json.loads(v) if isinstance(v, str) else v
-    except Exception as e:  # DB down/misconfigured -> caller falls back to files
-        print(f"[db_store] load failed for {key!r}: {e}", file=sys.stderr, flush=True)
-        return default
 
 
 def db_save(key, data):
     """Upsert the JSON value for key. True on success, False on failure."""
     if not db_enabled():
         return False
-    try:
-        conn = _connect()
+    for attempt in (1, 2):
+        conn = None
         try:
+            conn = _get_conn()
             with conn.cursor() as cur:
                 cur.execute(
                     "INSERT INTO kv_store (key, value, updated_at)"
@@ -88,13 +129,22 @@ def db_save(key, data):
                     (key, json.dumps(data)),
                 )
             conn.commit()
-        finally:
-            conn.close()
-        _note_ok_once()
-        return True
-    except Exception as e:
-        print(f"[db_store] save failed for {key!r}: {e}", file=sys.stderr, flush=True)
-        return False
+            _put_conn(conn)
+            _note_ok_once()
+            return True
+        except Exception as e:
+            if conn is not None:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+                _put_conn(conn, close=True)
+            if attempt == 1:
+                # Stale pooled connection? Reset pool and retry once.
+                _reset_pool()
+                continue
+            print(f"[db_store] save failed for {key!r}: {e}", file=sys.stderr, flush=True)
+            return False
 
 
 def db_get_fernet_key():
