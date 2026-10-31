@@ -118,7 +118,7 @@ def register_user(user):
 def check_gmail_login(email_addr, app_password):
     """Validate Gmail IMAP login. Never logs the password."""
     try:
-        m = imaplib.IMAP4_SSL("imap.gmail.com")
+        m = imaplib.IMAP4_SSL("imap.gmail.com", timeout=20)
         m.login(email_addr.strip(), app_password.strip())
         m.logout()
         return True
@@ -802,7 +802,17 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         email_addr = _pop_ud(context, uid, "tmp_gmail", "")
         app_pass = text.replace(" ", "")
         await update.message.reply_text("⏳ Checking Gmail...")
-        if not await asyncio.to_thread(check_gmail_login, email_addr, app_pass):
+        try:
+            gmail_ok = await asyncio.wait_for(
+                asyncio.to_thread(check_gmail_login, email_addr, app_pass),
+                timeout=45)
+        except asyncio.TimeoutError:
+            gmail_ok = False
+            _set_ud(context, uid, "awaiting_gmail_email")
+            await update.message.reply_text(
+                "⏳ Gmail check timed out (network was slow).\nSend the email again to retry, or /start to cancel.")
+            return
+        if not gmail_ok:
             _set_ud(context, uid, "awaiting_gmail_email")
             await update.message.reply_text(
                 "❌ Gmail login failed. Email or App Password is wrong.\nSend the email again, or /start to cancel.")
@@ -813,12 +823,23 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
             key = C.create_merchant_key(uid, user.first_name or "")
             m = merchants[key]
         m["gmail_email"] = email_addr
-        m["gmail_apppass_enc"] = C.fernet_encrypt(app_pass)
+        try:
+            m["gmail_apppass_enc"] = C.fernet_encrypt(app_pass)
+        except RuntimeError:
+            # Storage unreachable: never persist half a record. Nothing changed.
+            await update.message.reply_text(
+                "⚠️ Storage is temporarily unreachable, so the password can't be saved safely.\n"
+                "Please try again in a minute — nothing was changed.")
+            return
         merchants[key] = m
-        C.save_json(C.MERCHANTS_FILE, merchants)
-        await update.message.reply_text(
-            f"✅ Gmail connected!\n\nOrders will now auto-verify when FamPay payment emails arrive.\n"
-            f"Your API Key:\n{key}", reply_markup=user_panel_kb())
+        if C.save_json(C.MERCHANTS_FILE, merchants):
+            await update.message.reply_text(
+                f"✅ Gmail connected!\n\nOrders will now auto-verify when FamPay payment emails arrive.\n"
+                f"Your API Key:\n{key}", reply_markup=user_panel_kb())
+        else:
+            await update.message.reply_text(
+                "⚠️ Gmail verified, but saving hit a temporary storage hiccup.\n"
+                "Please try connecting once more in a minute.")
         return
 
     if _pop_ud(context, uid, "awaiting_upi_id"):
