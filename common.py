@@ -13,6 +13,7 @@ import re
 import sys
 import json
 import io
+import time
 import base64
 import secrets
 import random
@@ -66,7 +67,38 @@ def _doc_key(path):
 _tainted_docs = set()
 
 
+# In-memory cache for load_json (30s TTL). Dramatically speeds up the bot:
+# every button press was doing 3-4 Supabase queries (~70ms each from
+# Singapore). Writes via save_json invalidate the cache immediately,
+# so data is never more than 30s stale.
+_json_cache = {}  # doc_key -> (value, timestamp)
+_JSON_CACHE_TTL = 30
+
+
+def _cache_get(doc):
+    entry = _json_cache.get(doc)
+    if entry:
+        val, ts = entry
+        if time.time() - ts < _JSON_CACHE_TTL:
+            return val, True
+        del _json_cache[doc]
+    return None, False
+
+
+def _cache_set(doc, val):
+    _json_cache[doc] = (val, time.time())
+
+
+def _cache_invalidate(doc):
+    _json_cache.pop(doc, None)
+
+
 def load_json(path, default):
+    doc = _doc_key(path)
+    # Serve from cache when fresh (skips the Supabase round-trip)
+    cached, hit = _cache_get(doc)
+    if hit:
+        return cached
     if db_store.db_enabled():
         val = db_store.db_load(_doc_key(path), _MISSING)
         if val is db_store._DB_ERROR:
@@ -79,6 +111,7 @@ def load_json(path, default):
             return default
         _tainted_docs.discard(_doc_key(path))
         if val is not _MISSING:
+            _cache_set(doc, val)
             return val
         # One-time seed: a local file left behind (e.g. VM backup) seeds the DB.
         if os.path.exists(path):
@@ -86,6 +119,7 @@ def load_json(path, default):
                 with open(path, "r") as f:
                     file_data = json.load(f)
                 db_store.db_save(_doc_key(path), file_data)
+                _cache_set(doc, file_data)
                 return file_data
             except Exception:
                 pass
@@ -93,7 +127,9 @@ def load_json(path, default):
     if os.path.exists(path):
         try:
             with open(path, "r") as f:
-                return json.load(f)
+                file_data = json.load(f)
+                _cache_set(doc, file_data)
+                return file_data
         except Exception:
             return default
     return default
@@ -105,6 +141,7 @@ def save_json(path, data):
     in-memory copy may be empty defaults, and persisting it would wipe
     the real data (this is how deploys used to lose Gmail/API keys)."""
     doc = _doc_key(path)
+    _cache_invalidate(doc)  # writes always bust the cache
     if db_store.db_enabled():
         if doc in _tainted_docs:
             print(f"[storage] REFUSING Supabase write for {doc!r}: last read failed; "
