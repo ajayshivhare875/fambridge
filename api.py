@@ -202,9 +202,21 @@ def debug_gmail_check():
     """Temporary diagnostic: one-time scan of each merchant's Gmail for
     FamPay emails in last 60 min. Returns sender/subject/parsed amount only.
     No credentials or email bodies exposed."""
-    import imaplib, email as emailmod
+    import imaplib, email as emailmod, traceback
     from datetime import datetime, timedelta
     out = []
+    # Diagnostic: test db_load for fernet.key directly
+    try:
+        import db_store as _ds
+        test_val = _ds.db_load(_ds.FERNET_DB_KEY, "DEFAULT_SENTINEL")
+        if test_val is _ds._DB_ERROR:
+            out.append({"_diag": "db_load(fernet.key) returned _DB_ERROR"})
+        elif test_val == "DEFAULT_SENTINEL":
+            out.append({"_diag": "db_load(fernet.key) returned default (key absent?)"})
+        else:
+            out.append({"_diag": f"db_load(fernet.key) OK, type={type(test_val).__name__}, len={len(str(test_val))}"})
+    except Exception as e:
+        out.append({"_diag": f"db_load raised: {type(e).__name__}: {e}\n{traceback.format_exc()[:500]}"})
     try:
         merchants = C.load_json(C.MERCHANTS_FILE, {})
     except Exception as e:
