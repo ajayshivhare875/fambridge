@@ -10,6 +10,7 @@ How verification works (FamPay has no official API):
 """
 import os
 import re
+import sys
 import json
 import io
 import base64
@@ -58,9 +59,25 @@ def _doc_key(path):
     return os.path.basename(path)
 
 
+# Docs whose last load hit a DB error. While a doc is tainted, save_json
+# REFUSES to write it to Supabase: our in-memory copy came from a failed
+# read, and writing it would permanently wipe the real data. A later
+# successful load_json clears the taint.
+_tainted_docs = set()
+
+
 def load_json(path, default):
     if db_store.db_enabled():
         val = db_store.db_load(_doc_key(path), _MISSING)
+        if val is db_store._DB_ERROR:
+            # DB unreachable: this is NOT "no data". Serve defaults so the
+            # bot keeps responding, but taint the doc so no save can
+            # overwrite Supabase from this empty read.
+            print(f"[storage] DB read failed for {_doc_key(path)!r}: using defaults, "
+                  f"Supabase writes paused for this doc", file=sys.stderr, flush=True)
+            _tainted_docs.add(_doc_key(path))
+            return default
+        _tainted_docs.discard(_doc_key(path))
         if val is not _MISSING:
             return val
         # One-time seed: a local file left behind (e.g. VM backup) seeds the DB.
@@ -83,15 +100,25 @@ def load_json(path, default):
 
 
 def save_json(path, data):
-    if db_store.db_enabled() and db_store.db_save(_doc_key(path), data):
-        return
-    # DB unset or unreachable -> keep the file copy so nothing is ever lost.
+    """Save a doc. Returns True if it reached Supabase, False otherwise.
+    A doc tainted by a failed read is NEVER written to Supabase: the
+    in-memory copy may be empty defaults, and persisting it would wipe
+    the real data (this is how deploys used to lose Gmail/API keys)."""
+    doc = _doc_key(path)
+    if db_store.db_enabled():
+        if doc in _tainted_docs:
+            print(f"[storage] REFUSING Supabase write for {doc!r}: last read failed; "
+                  f"kept local file copy only", file=sys.stderr, flush=True)
+        elif db_store.db_save(doc, data):
+            return True
+    # DB unset/unreachable/refused -> keep the file copy so nothing is ever lost.
     with open(path, "w") as f:
         json.dump(data, f, indent=2)
     try:
         os.chmod(path, 0o600)
     except Exception:
         pass
+    return False
 
 
 # ---------- encryption for Gmail app passwords ----------
@@ -101,6 +128,13 @@ def _get_fernet():
         return Fernet(key.encode())
     if db_store.db_enabled():
         db_key = db_store.db_get_fernet_key()
+        if db_key is db_store._DB_ERROR:
+            # DB unreachable: NEVER generate a fresh key and overwrite the
+            # real one. Reuse the local key file when present, else fail
+            # loudly so no secret is encrypted with a throwaway key.
+            if os.path.exists(FERNET_KEY_FILE):
+                return Fernet(open(FERNET_KEY_FILE, "rb").read().strip())
+            raise RuntimeError("Fernet key unavailable: database unreachable and no local key file")
         if db_key:
             return Fernet(db_key)
     if os.path.exists(FERNET_KEY_FILE):
