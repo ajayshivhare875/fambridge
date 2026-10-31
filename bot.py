@@ -684,7 +684,7 @@ async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         orders = C.load_json(C.ORDERS_FILE, {})
         paid = [o for o in orders.values() if o["status"] == "paid"]
         rev = sum(o["amount_paise"] for o in paid) / 100
-        uptime = _get_gateway_uptime()
+        uptime = await asyncio.to_thread(_get_gateway_uptime)
         await q.edit_message_text(
             f"📊 Stats:\n\n👥 Users: {len(users)}\n🏪 Merchants: {len(merchants)}\n"
             f"🧾 Orders: {len(orders)} (paid: {len(paid)})\n💰 Revenue: ₹{rev:.2f}\n"
@@ -885,8 +885,9 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         m["bot_username"] = username or fname
         merchants[key] = m
         C.save_json(C.MERCHANTS_FILE, merchants)
-        sent = send_via_token(text.strip(), uid,
-                              "✅ Your bot is connected!\n\nYou will now receive payment notifications from this bot. 🎉")
+        sent = await asyncio.to_thread(
+            send_via_token, text.strip(), uid,
+            "✅ Your bot is connected!\n\nYou will now receive payment notifications from this bot. 🎉")
         if sent:
             await update.message.reply_text(
                 f"✅ Connected: {username or fname}\n\nThe test message reached your bot!",
