@@ -197,6 +197,59 @@ def debug_polling():
                         "detail": str(e)[:200]}), 500
 
 
+@app.route("/debug/gmail_check")
+def debug_gmail_check():
+    """Temporary diagnostic: one-time scan of each merchant's Gmail for
+    FamPay emails in last 60 min. Returns sender/subject/parsed amount only.
+    No credentials or email bodies exposed."""
+    import imaplib, email as emailmod
+    from datetime import datetime, timedelta
+    out = []
+    try:
+        merchants = C.load_json(C.MERCHANTS_FILE, {})
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"load merchants: {e}"}), 500
+    for api_key, m in merchants.items():
+        enc = m.get("gmail_apppass_enc")
+        email_addr = m.get("gmail_email")
+        if not enc or not email_addr:
+            continue
+        entry = {"merchant": m.get("owner_name", "?")[:20],
+                 "email": email_addr[:3] + "***",
+                 "last_uid": m.get("last_uid", 0)}
+        try:
+            app_pass = C.fernet_decrypt(enc)
+            mail = imaplib.IMAP4_SSL("imap.gmail.com", timeout=20)
+            mail.login(email_addr.strip(), app_pass.strip())
+            mail.select("INBOX")
+            since = (datetime.now() - timedelta(minutes=60)).strftime("%d-%b-%Y")
+            typ, data = mail.uid("search", None, f"(SINCE {since})")
+            uids = [int(x) for x in data[0].split()] if data and data[0] else []
+            entry["emails_last_60min"] = len(uids)
+            found = []
+            for uid in sorted(uids)[-10:]:  # last 10 only
+                typ, msg_data = mail.uid("fetch", str(uid), "(BODY[])")
+                if not msg_data or not msg_data[0]:
+                    continue
+                msg = emailmod.message_from_bytes(msg_data[0][1])
+                frm = str(msg.get("From", ""))[:60]
+                subj = str(msg.get("Subject", ""))[:80]
+                is_fampay = C.sender_match(frm + " " + subj)
+                parsed = []
+                if is_fampay:
+                    body = C.get_email_body(msg)
+                    parsed = [(a, u) for a, u in C.parse_payment_email(frm + "\n" + subj + "\n" + body)]
+                found.append({"uid": uid, "from": frm, "subject": subj,
+                              "fampay_match": is_fampay,
+                              "parsed": [(a/100, u) for a, u in parsed]})
+            entry["recent"] = found
+            mail.logout()
+        except Exception as e:
+            entry["error"] = f"{type(e).__name__}: {str(e)[:100]}"
+        out.append(entry)
+    return jsonify({"ok": True, "merchants": out})
+
+
 @app.route("/debug/db")
 def debug_db():
     # Temporary diagnostic: tests Supabase connectivity and reports the
