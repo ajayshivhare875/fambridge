@@ -197,6 +197,33 @@ def debug_polling():
                         "detail": str(e)[:200]}), 500
 
 
+@app.route("/debug/db")
+def debug_db():
+    # Temporary diagnostic: tests Supabase connectivity and reports the
+    # actual error. Read-only: never exposes credentials or data values.
+    import db_store as _db
+    if not _db.db_enabled():
+        return jsonify({"ok": False, "error": "DATABASE_URL not set"}), 500
+    try:
+        import psycopg2 as _pg
+        conn = _pg.connect(__import__("os").environ["DATABASE_URL"],
+                           connect_timeout=10)
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT count(*) FROM kv_store")
+                n = cur.fetchone()[0]
+                cur.execute("SELECT key FROM kv_store")
+                keys = sorted(r[0] for r in cur.fetchall())
+        finally:
+            conn.close()
+        return jsonify({"ok": True, "connected": True,
+                        "kv_keys": keys, "kv_count": n})
+    except Exception as e:
+        return jsonify({"ok": False, "connected": False,
+                        "error": type(e).__name__,
+                        "detail": str(e)[:300]}), 502
+
+
 @app.route("/terms")
 def terms():
     return L.terms_html()
