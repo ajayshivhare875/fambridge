@@ -214,10 +214,22 @@ def debug_db():
                 n = cur.fetchone()[0]
                 cur.execute("SELECT key FROM kv_store")
                 keys = sorted(r[0] for r in cur.fetchall())
+                # Check merchants doc: how many records, any with gmail? (no values exposed)
+                cur.execute("SELECT value FROM kv_store WHERE key='merchants.json'")
+                row = cur.fetchone()
+                merch_info = {"present": False}
+                if row:
+                    import json as _j
+                    md = _j.loads(row[0]) if isinstance(row[0], str) else row[0]
+                    merch_info = {"present": True,
+                                  "records": len(md),
+                                  "with_gmail": sum(1 for m in md.values()
+                                                    if isinstance(m, dict) and m.get("gmail_email"))}
         finally:
             conn.close()
         return jsonify({"ok": True, "connected": True,
-                        "kv_keys": keys, "kv_count": n})
+                        "kv_keys": keys, "kv_count": n,
+                        "merchants": merch_info})
     except Exception as e:
         return jsonify({"ok": False, "connected": False,
                         "error": type(e).__name__,
