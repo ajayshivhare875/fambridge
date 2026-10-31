@@ -446,7 +446,10 @@ async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # "I've Joined" button: re-check membership, then show main menu or prompt again
+    # NOTE: bypass the 5-min cache here — the user JUST joined, so we need
+    # a fresh check, not the cached "not a member" from before they joined.
     if data == "check_joined":
+        _member_cache.pop(uid, None)  # force fresh check
         if C.is_admin(uid) or await is_channel_member_cached(uid):
             await q.edit_message_text("Main menu:", reply_markup=main_menu_kb(uid))
         else:
