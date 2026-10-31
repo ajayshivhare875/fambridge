@@ -266,6 +266,8 @@ def mybot_kb(connected):
 
 
 def admin_panel_kb():
+    maint_on = C.get_maintenance_mode()
+    maint_btn = f"🔧 Maintenance: {'ON' if maint_on else 'OFF'}"
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("📊 Stats", callback_data="a_stats"),
          InlineKeyboardButton("🏪 Merchants", callback_data="a_merchants")],
@@ -273,6 +275,7 @@ def admin_panel_kb():
          InlineKeyboardButton("📢 Broadcast", callback_data="a_broadcast")],
         [InlineKeyboardButton("💳 Subscriptions", callback_data="a_subs"),
          InlineKeyboardButton("💰 Sub. UPI", callback_data="a_subupi")],
+        [InlineKeyboardButton(maint_btn, callback_data="a_maint_toggle")],
         [InlineKeyboardButton("⬅️ Back", callback_data="menu_main")],
     ])
 
@@ -410,6 +413,11 @@ def _subscriptions_view():
 # ---------- commands ----------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+    # Maintenance mode: only admin can use the bot
+    if C.get_maintenance_mode() and not C.is_admin(user.id):
+        await update.message.reply_text(
+            "🔧 Bot is under maintenance.\n\nPlease try again later.")
+        return
     if not await require_channel_member(update, context):
         return
     _clear_ud(context, user.id)  # /start cancels any pending input
@@ -430,6 +438,12 @@ async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     uid = user.id
     data = q.data
+
+    # Maintenance mode: only admin can use the bot
+    if C.get_maintenance_mode() and not C.is_admin(uid):
+        await q.edit_message_text(
+            "🔧 Bot is under maintenance.\n\nPlease try again later.")
+        return
 
     # "I've Joined" button: re-check membership, then show main menu or prompt again
     if data == "check_joined":
@@ -743,6 +757,16 @@ async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"💰 Current subscription UPI: {cur or 'not set'}\n\n"
             f"Send your FamPay UPI ID where merchants will pay for plans\n"
             f"(e.g.: name@fam):\n\nCancel: /start")
+    elif data == "a_maint_toggle":
+        if not C.is_admin(uid):
+            return
+        new_state = not C.get_maintenance_mode()
+        C.set_maintenance_mode(new_state)
+        await q.answer(f"Maintenance {'ON' if new_state else 'OFF'}", show_alert=False)
+        await q.edit_message_text(
+            f"🔧 Maintenance mode is now **{'ON' if new_state else 'OFF'}**.\n\n"
+            f"{'Only you (admin) can use the bot now.' if new_state else 'All users can use the bot again.'}",
+            reply_markup=admin_panel_kb())
     elif data == "a_orders":
         if not C.is_admin(uid):
             return
@@ -780,6 +804,11 @@ async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     uid = user.id
+    # Maintenance mode: only admin can use the bot
+    if C.get_maintenance_mode() and not C.is_admin(uid):
+        await update.message.reply_text(
+            "🔧 Bot is under maintenance.\n\nPlease try again later.")
+        return
     if not await require_channel_member(update, context):
         return
     text = (update.message.text or "").strip()
