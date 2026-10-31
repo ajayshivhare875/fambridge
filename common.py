@@ -181,6 +181,15 @@ def set_admin_setting(key, value):
     save_json(ADMIN_FILE, s)
 
 
+def get_maintenance_mode():
+    """True when the bot is in maintenance mode (only admin can use it)."""
+    return bool(load_json(ADMIN_FILE, {}).get("maintenance_mode", False))
+
+
+def set_maintenance_mode(on: bool):
+    set_admin_setting("maintenance_mode", bool(on))
+
+
 def ensure_admin(user_id):
     if ADMIN_ID_ENV:
         return
