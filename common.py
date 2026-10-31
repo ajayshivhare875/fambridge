@@ -523,10 +523,8 @@ def _unique_amount_paise(api_key, base_paise, orders):
     """QR amount for a new order. Uses the EXACT requested amount when no
     other pending order from this merchant has the same amount (clean UX).
     Only when a collision risk exists (another pending order with the same
-    amount) it subtracts a small random paise (1-50, capped at 5% for small
-    amounts) so the customer pays slightly LESS -- no confusion, no extra
-    charge. Retries until the amount doesn't clash with another pending
-    order from the same merchant."""
+    amount) it subtracts the SMALLEST possible paise (1, then 2, ...) until
+    unique -- so the customer pays minimally less, never a random cut."""
     pending_amounts = {
         o.get("amount_paise") for o in orders.values()
         if o.get("api_key") == api_key and o.get("status") == "pending"
@@ -534,10 +532,8 @@ def _unique_amount_paise(api_key, base_paise, orders):
     # No collision: exact amount, no reduction
     if base_paise not in pending_amounts:
         return base_paise
-    # Collision risk: reduce until unique
-    max_reduce = min(50, max(1, base_paise // 20))
-    for _ in range(20):
-        reduction = random.randint(1, max_reduce)
+    # Collision risk: smallest reduction that stays unique (1 paisa first)
+    for reduction in range(1, 51):
         candidate = base_paise - reduction
         if candidate > 0 and candidate not in pending_amounts:
             return candidate
