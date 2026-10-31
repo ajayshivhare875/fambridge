@@ -434,7 +434,7 @@ def poll_gmail_once():
             print(f"decrypt failed for merchant {m.get('owner_name')}")
             continue
         try:
-            mail = imaplib.IMAP4_SSL("imap.gmail.com")
+            mail = imaplib.IMAP4_SSL("imap.gmail.com", timeout=20)
             mail.login(email_addr, app_pass)
             mail.select("INBOX")
             last_uid = int(m.get("last_uid") or 0)
