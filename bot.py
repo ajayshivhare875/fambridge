@@ -34,6 +34,11 @@ FORCE_JOIN_CHANNEL = "@magservicesbots"
 FORCE_JOIN_URL = "https://t.me/magservicesbots"
 
 
+# ---------- tutorial video ----------
+# Setup tutorial video shown in the Integration Guide (merchant can replace the link).
+VIDEO_TUTORIAL_URL = "https://drive.google.com/file/d/1cTM2zkaRz25N4DaC82gFD4MtwAsOX81h/view?usp=sharing"
+
+
 # Cache channel membership: user_id -> (is_member, timestamp).
 # is_channel_member() does a BLOCKING urllib call — calling it directly from
 # async handlers freezes the whole bot event loop (this was making every
@@ -282,6 +287,7 @@ def admin_panel_kb():
 
 def guide_kb():
     return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🎬 Video Tutorial", url=VIDEO_TUTORIAL_URL)],
         [InlineKeyboardButton("📄 Python Bot Code", callback_data="u_code_py"),
          InlineKeyboardButton("📄 Website (JS) Code", callback_data="u_code_js")],
         [InlineKeyboardButton("📄 Webhook Server Code", callback_data="u_code_wh")],
@@ -294,6 +300,8 @@ GUIDE = """📖 Integration Guide - FamPay auto-verification for your bot or web
 🌐 Your Gateway URL: {BASE}
 
 🧪 Try it live first! Open our test bot @Teisgsksbtes_bot — it sells a Rs.1 test product through this gateway so you can see the full payment flow (QR -> pay -> auto-verify -> delivery) before integrating.
+
+🎬 Prefer watching? Tap "Video Tutorial" below for a step-by-step setup video.
 
 STEP 1: One-time setup (in this bot)
 User Panel > Connect Gmail (the SAME Gmail linked to your FamPay account + App Password)
