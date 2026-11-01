@@ -93,7 +93,7 @@
   }
   window.copyKey = copyKey;
   var initData = (tg && tg.initData) || '';
-  fetch('api/dashboard', {
+  fetch('/webapp/api/dashboard', {
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body: JSON.stringify({initData: initData})
