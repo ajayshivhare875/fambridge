@@ -457,6 +457,33 @@ def alert_admin(text, key="generic", min_interval_sec=3600):
                 os.environ[k] = v
 
 
+def notify_merchant(merchant, text, key="generic", min_interval_sec=7200):
+    """Send a plain-text notice to a merchant's Telegram (their own bot if
+    connected, else the gateway bot). Rate-limited per key to avoid spam."""
+    import time
+    now = time.time()
+    if now - _ALERT_LAST.get(key, 0) < min_interval_sec:
+        return
+    _ALERT_LAST[key] = now
+    chat_id = merchant.get("owner_id")
+    token = C.get_merchant_bot_token(merchant) or BOT_TOKEN
+    if not chat_id or not token:
+        return
+    old = {}
+    for k in ("no_proxy", "NO_PROXY"):
+        old[k] = os.environ.pop(k, None)
+    try:
+        requests.post(f"https://api.telegram.org/bot{token}/sendMessage",
+                      json={"chat_id": chat_id, "text": text},
+                      timeout=15)
+    except Exception:
+        pass
+    finally:
+        for k, v in old.items():
+            if v is not None:
+                os.environ[k] = v
+
+
 def notify_sub_paid(sub, admin_merchant):
     """Tell the buyer their plan is live + tell the admin about the sale."""
     buyer_id = sub.get("buyer_id")
@@ -585,6 +612,21 @@ def poll_gmail_once():
                 f"They may need to reconnect Gmail (App Password expired?)",
                 key=f"imap_fail_{api_key}",
                 min_interval_sec=7200)
+            # Tell the merchant directly too — only they can fix this
+            # (needs a fresh Gmail App Password). Rate-limited separately.
+            notify_merchant(
+                m,
+                "⚠️ FamBridge: Gmail disconnected!\n\n"
+                f"We can't read your Gmail ({email_addr}) anymore — "
+                "your App Password looks expired or revoked, so payment "
+                "verification is STOPPED for your account.\n\n"
+                "Fix it in 2 minutes:\n"
+                "1) Google Account > Security > 2-Step Verification > "
+                "App passwords — create a NEW app password\n"
+                "2) Open this bot > User Panel > Connect Gmail — enter "
+                "your Gmail + the new app password\n\n"
+                "Verification resumes automatically once Gmail is reconnected.",
+                key=f"imap_fail_merchant_{api_key}")
         except Exception as e:
             print(f"poll error: {type(e).__name__}: {e}")
     if dirty:
