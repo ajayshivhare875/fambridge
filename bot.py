@@ -35,7 +35,12 @@ FORCE_JOIN_URL = "https://t.me/magservicesbots"
 
 
 # ---------- tutorial video ----------
-# Setup tutorial video shown in the Integration Guide (merchant can replace the link).
+# Setup tutorial video shown in the Integration Guide.
+# The video is sent natively via Telegram (plays inline) using its file_id.
+# To replace the video: send the new mp4 to the bot via Bot API sendVideo,
+# copy the returned video.file_id here, and redeploy.
+VIDEO_FILE_ID = "BAACAgUAAxkDAAIBOWrmzudEsCBEZJaHd0KZf33wexmOAALAIwAC-MM5V5FkNIsI5mSyPQQ"
+# Drive link kept as a fallback / for sharing outside Telegram.
 VIDEO_TUTORIAL_URL = "https://drive.google.com/file/d/1cTM2zkaRz25N4DaC82gFD4MtwAsOX81h/view?usp=sharing"
 
 
@@ -287,7 +292,7 @@ def admin_panel_kb():
 
 def guide_kb():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎬 Video Tutorial", url=VIDEO_TUTORIAL_URL)],
+        [InlineKeyboardButton("🎬 Video Tutorial", callback_data="u_video")],
         [InlineKeyboardButton("📄 Python Bot Code", callback_data="u_code_py"),
          InlineKeyboardButton("📄 Website (JS) Code", callback_data="u_code_js")],
         [InlineKeyboardButton("📄 Webhook Server Code", callback_data="u_code_wh")],
@@ -575,6 +580,21 @@ async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ----- guide / usage / test order -----
     elif data == "u_guide":
         await q.edit_message_text(GUIDE.replace("{BASE}", BASE_NOTE), reply_markup=guide_kb())
+    elif data == "u_video":
+        # Send the tutorial video natively so it plays inline in Telegram
+        # (no Drive link needed).
+        try:
+            await q.message.reply_video(
+                video=VIDEO_FILE_ID,
+                caption="🎬 FamBridge setup tutorial — watch how to connect Gmail, "
+                        "get your API key and verify payments automatically.",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("⬅️ Back to Guide", callback_data="u_guide")],
+                ]))
+        except Exception:
+            await q.message.reply_text(
+                "🎬 Video Tutorial:\n" + VIDEO_TUTORIAL_URL,
+                reply_markup=guide_kb())
     elif data in ("u_code_py", "u_code_js", "u_code_wh"):
         key, m = C.get_merchant_by_owner(uid)
         if not key:
