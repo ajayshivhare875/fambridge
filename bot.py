@@ -39,7 +39,7 @@ FORCE_JOIN_URL = "https://t.me/magservicesbots"
 # The video is sent natively via Telegram (plays inline) using its file_id.
 # To replace the video: send the new mp4 to the bot via Bot API sendVideo,
 # copy the returned video.file_id here, and redeploy.
-VIDEO_FILE_ID = "BAACAgUAAxkDAAIBOWrmzudEsCBEZJaHd0KZf33wexmOAALAIwAC-MM5V5FkNIsI5mSyPQQ"
+VIDEO_FILE_ID = "BAACAgUAAxkDAAIBP2rmz_KpicGA0ZR5q0-y-tRXAeBcAALBIwAC-MM5V2ytUpJmKo2NPQQ"
 # Drive link kept as a fallback / for sharing outside Telegram.
 VIDEO_TUTORIAL_URL = "https://drive.google.com/file/d/1cTM2zkaRz25N4DaC82gFD4MtwAsOX81h/view?usp=sharing"
 
