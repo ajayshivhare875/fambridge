@@ -17,44 +17,79 @@
     background:var(--bg); color:var(--text);
     padding:16px 16px 32px; min-height:100vh;
   }
-  .head{display:flex;align-items:center;gap:12px;margin-bottom:18px}
-  .logo{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#2aabee,#3ecf6f);
-    display:flex;align-items:center;justify-content:center;font-size:24px}
-  .head h1{font-size:20px}
-  .head p{font-size:12px;color:var(--sub)}
+  @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  @keyframes glow{0%,100%{box-shadow:0 0 18px rgba(42,171,238,.35)}50%{box-shadow:0 0 30px rgba(62,207,111,.45)}}
+  @keyframes shimmer{from{background-position:-200% 0}to{background-position:200% 0}}
+  .hero{
+    background:linear-gradient(135deg,#1a6fd4 0%,#2aabee 45%,#3ecf6f 100%);
+    border-radius:20px; padding:20px 18px; margin-bottom:16px;
+    display:flex; align-items:center; gap:14px;
+    box-shadow:0 8px 28px rgba(42,171,238,.30);
+    animation:rise .5s ease both;
+    position:relative; overflow:hidden;
+  }
+  .hero::after{
+    content:''; position:absolute; inset:0;
+    background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.18) 50%,transparent 70%);
+    background-size:200% 100%; animation:shimmer 5s linear infinite; pointer-events:none;
+  }
+  .avatar{width:52px;height:52px;border-radius:16px;background:rgba(255,255,255,.22);
+    display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;
+    border:2px solid rgba(255,255,255,.35)}
+  .hero h1{font-size:21px;letter-spacing:.3px}
+  .hero p{font-size:12px;opacity:.92;margin-top:2px;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
-  .card{background:var(--card);border-radius:14px;padding:14px}
-  .card .lbl{font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px}
-  .card .val{font-size:24px;font-weight:700;margin-top:4px}
-  .card .val.green{color:var(--green)} .card .val.yellow{color:var(--yellow)}
+  .card{background:var(--card);border-radius:16px;padding:14px;position:relative;overflow:hidden;
+    animation:rise .5s ease both;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+  .card:nth-child(2){animation-delay:.06s}.card:nth-child(3){animation-delay:.12s}
+  .card:nth-child(4){animation-delay:.18s}.card:nth-child(5){animation-delay:.24s}
+  .card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;
+    background:linear-gradient(90deg,var(--accent),var(--green));opacity:.85}
+  .card .top{display:flex;align-items:center;gap:6px}
+  .ico{width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px}
+  .card .lbl{font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.8px}
+  .card .val{font-size:26px;font-weight:800;margin-top:6px}
+  .card .val.green{color:var(--green);text-shadow:0 0 14px rgba(62,207,111,.4)}
+  .card .val.yellow{color:var(--yellow);text-shadow:0 0 14px rgba(245,166,35,.4)}
   .wide{grid-column:1/-1}
   .planrow{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-  .planname{font-size:16px;font-weight:700;text-transform:capitalize}
-  .planprice{font-size:12px;color:var(--sub)}
-  .bar{height:8px;background:var(--bar);border-radius:4px;overflow:hidden;margin:8px 0 4px}
-  .bar>div{height:100%;background:linear-gradient(90deg,#2aabee,#3ecf6f);border-radius:4px;transition:width .5s}
+  .planname{font-size:16px;font-weight:800;text-transform:capitalize;
+    background:linear-gradient(90deg,var(--accent),var(--green));
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .planprice{font-size:12px;color:var(--sub);background:var(--bar);padding:4px 10px;border-radius:20px}
+  .bar{height:10px;background:var(--bar);border-radius:6px;overflow:hidden;margin:10px 0 6px}
+  .bar>div{height:100%;background:linear-gradient(90deg,#2aabee,#3ecf6f);border-radius:6px;
+    transition:width .8s ease;box-shadow:0 0 10px rgba(42,171,238,.6)}
   .quota{font-size:12px;color:var(--sub)}
-  .keybox{display:flex;align-items:center;gap:8px;background:var(--bar);border-radius:10px;
-    padding:10px 12px;margin-top:8px;font-family:monospace;font-size:13px}
+  .keybox{display:flex;align-items:center;gap:8px;background:var(--bar);border-radius:12px;
+    padding:10px 12px;margin-top:10px;font-family:monospace;font-size:13px;
+    border:1px solid rgba(42,171,238,.25)}
   .keybox span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .copybtn{background:var(--accent);border:none;color:#fff;border-radius:8px;
-    padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer}
+  .copybtn{background:linear-gradient(135deg,#2aabee,#1a6fd4);border:none;color:#fff;border-radius:10px;
+    padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;
+    box-shadow:0 4px 12px rgba(42,171,238,.4)}
+  .copybtn:active{transform:scale(.95)}
   .status{display:flex;gap:10px;margin-top:10px}
-  .pill{flex:1;text-align:center;font-size:12px;padding:8px;border-radius:10px;background:var(--bar)}
-  .pill.ok{color:var(--green)} .pill.no{color:var(--red)}
-  h2{font-size:15px;margin:18px 0 10px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px}
-  .order{background:var(--card);border-radius:12px;padding:12px;margin-bottom:8px;
-    display:flex;justify-content:space-between;align-items:center}
-  .order .amt{font-size:17px;font-weight:700}
-  .order .meta{font-size:11px;color:var(--sub);margin-top:2px}
-  .badge{font-size:11px;font-weight:700;padding:5px 10px;border-radius:20px;text-transform:uppercase}
-  .badge.paid{background:rgba(62,207,111,.15);color:var(--green)}
-  .badge.pending{background:rgba(245,166,35,.15);color:var(--yellow)}
-  .badge.expired{background:rgba(138,153,168,.15);color:var(--sub)}
-  .empty{text-align:center;color:var(--sub);padding:24px;font-size:14px}
+  .pill{flex:1;text-align:center;font-size:12px;font-weight:600;padding:9px;border-radius:12px;background:var(--bar)}
+  .pill.ok{color:var(--green);border:1px solid rgba(62,207,111,.35)}
+  .pill.no{color:var(--red);border:1px solid rgba(239,75,75,.35)}
+  h2{font-size:13px;margin:20px 0 10px;color:var(--sub);text-transform:uppercase;letter-spacing:1px}
+  .order{background:var(--card);border-radius:14px;padding:13px;margin-bottom:9px;
+    display:flex;justify-content:space-between;align-items:center;
+    border-left:4px solid var(--sub);animation:rise .5s ease both;
+    box-shadow:0 4px 12px rgba(0,0,0,.22)}
+  .order.st-paid{border-left-color:var(--green)}
+  .order.st-pending{border-left-color:var(--yellow);animation:glow 2.4s ease-in-out infinite}
+  .order .amt{font-size:18px;font-weight:800}
+  .order .meta{font-size:11px;color:var(--sub);margin-top:3px}
+  .badge{font-size:11px;font-weight:800;padding:6px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:.5px}
+  .badge.paid{background:rgba(62,207,111,.16);color:var(--green);box-shadow:0 0 10px rgba(62,207,111,.25)}
+  .badge.pending{background:rgba(245,166,35,.16);color:var(--yellow);box-shadow:0 0 10px rgba(245,166,35,.25)}
+  .badge.expired{background:rgba(138,153,168,.14);color:var(--sub)}
+  .empty{text-align:center;color:var(--sub);padding:28px;font-size:14px}
   .err{text-align:center;padding:40px 20px;color:var(--red)}
   .loader{text-align:center;padding:60px 20px;color:var(--sub)}
-  .spin{width:36px;height:36px;border:3px solid var(--bar);border-top-color:var(--accent);
+  .spin{width:38px;height:38px;border:3px solid var(--bar);border-top-color:var(--accent);
     border-radius:50%;margin:0 auto 12px;animation:sp 1s linear infinite}
   @keyframes sp{to{transform:rotate(360deg)}}
 </style>
@@ -107,19 +142,20 @@
     var pct = d.quota_total ? Math.min(100, Math.round(d.quota_used/d.quota_total*100)) : 0;
     var orders = (d.orders||[]).map(function(o){
       var cls = o.status==='paid' ? 'paid' : (o.status==='pending' ? 'pending' : 'expired');
-      return '<div class="order"><div><div class="amt">' + money(o.amount_paise) + '</div>' +
+      var stc = o.status==='paid' ? 'st-paid' : (o.status==='pending' ? 'st-pending' : '');
+      return '<div class="order ' + stc + '"><div><div class="amt">' + money(o.amount_paise) + '</div>' +
         '<div class="meta">' + esc(o.order_id) + ' &middot; ' + esc((o.created_at||'').slice(0,16).replace('T',' ')) +
         (o.note ? ' &middot; ' + esc(o.note.slice(0,30)) : '') + '</div></div>' +
         '<div class="badge ' + cls + '">' + esc(o.status) + '</div></div>';
     }).join('');
     document.getElementById('app').innerHTML =
-      '<div class="head"><div class="logo">&#9889;</div><div><h1>FamBridge</h1><p>' +
+      '<div class="hero"><div class="avatar">&#9889;</div><div><h1>FamBridge</h1><p>' +
       esc(d.owner_name||'Merchant') + '</p></div></div>' +
       '<div class="grid">' +
-        '<div class="card"><div class="lbl">Total orders</div><div class="val">' + d.total_orders + '</div></div>' +
-        '<div class="card"><div class="lbl">Revenue</div><div class="val green">' + money(d.revenue_paise) + '</div></div>' +
-        '<div class="card"><div class="lbl">Paid</div><div class="val green">' + d.paid_count + '</div></div>' +
-        '<div class="card"><div class="lbl">Pending</div><div class="val yellow">' + d.pending_count + '</div></div>' +
+        '<div class="card"><div class="top"><div class="ico" style="background:rgba(42,171,238,.15)">&#128202;</div><div class="lbl">Total orders</div></div><div class="val">' + d.total_orders + '</div></div>' +
+        '<div class="card"><div class="top"><div class="ico" style="background:rgba(62,207,111,.15)">&#128176;</div><div class="lbl">Revenue</div></div><div class="val green">' + money(d.revenue_paise) + '</div></div>' +
+        '<div class="card"><div class="top"><div class="ico" style="background:rgba(62,207,111,.15)">&#9989;</div><div class="lbl">Paid</div></div><div class="val green">' + d.paid_count + '</div></div>' +
+        '<div class="card"><div class="top"><div class="ico" style="background:rgba(245,166,35,.15)">&#9203;</div><div class="lbl">Pending</div></div><div class="val yellow">' + d.pending_count + '</div></div>' +
         '<div class="card wide"><div class="planrow"><div class="planname">' + esc(d.plan) + ' plan</div>' +
         '<div class="planprice">' + (d.plan_price ? 'Rs.'+d.plan_price+'/mo' : 'Free') + '</div></div>' +
         '<div class="bar"><div style="width:' + pct + '%"></div></div>' +
