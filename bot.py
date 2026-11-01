@@ -13,7 +13,7 @@ import imaplib
 import urllib.request
 from datetime import datetime
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, CallbackQueryHandler,
     MessageHandler, ContextTypes, filters,
@@ -219,6 +219,7 @@ def main_menu_kb(user_id):
 
 def user_panel_kb():
     return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🌐 Dashboard", web_app=WebAppInfo(url=f"{BASE_NOTE}/webapp"))],
         [InlineKeyboardButton("📧 Connect Gmail", callback_data="u_gmail"),
          InlineKeyboardButton("🆔 Set UPI ID", callback_data="u_upi")],
         [InlineKeyboardButton("🔑 My API Key", callback_data="u_apikey"),
