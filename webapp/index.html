@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>FamBridge Dashboard</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root{
+    --bg:#0e1621; --card:#17212b; --text:#ffffff; --sub:#8a99a8;
+    --accent:#2aabee; --green:#3ecf6f; --yellow:#f5a623; --red:#ef4b4b;
+    --bar:#242f3d;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:var(--bg); color:var(--text);
+    padding:16px 16px 32px; min-height:100vh;
+  }
+  .head{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+  .logo{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#2aabee,#3ecf6f);
+    display:flex;align-items:center;justify-content:center;font-size:24px}
+  .head h1{font-size:20px}
+  .head p{font-size:12px;color:var(--sub)}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+  .card{background:var(--card);border-radius:14px;padding:14px}
+  .card .lbl{font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px}
+  .card .val{font-size:24px;font-weight:700;margin-top:4px}
+  .card .val.green{color:var(--green)} .card .val.yellow{color:var(--yellow)}
+  .wide{grid-column:1/-1}
+  .planrow{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .planname{font-size:16px;font-weight:700;text-transform:capitalize}
+  .planprice{font-size:12px;color:var(--sub)}
+  .bar{height:8px;background:var(--bar);border-radius:4px;overflow:hidden;margin:8px 0 4px}
+  .bar>div{height:100%;background:linear-gradient(90deg,#2aabee,#3ecf6f);border-radius:4px;transition:width .5s}
+  .quota{font-size:12px;color:var(--sub)}
+  .keybox{display:flex;align-items:center;gap:8px;background:var(--bar);border-radius:10px;
+    padding:10px 12px;margin-top:8px;font-family:monospace;font-size:13px}
+  .keybox span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .copybtn{background:var(--accent);border:none;color:#fff;border-radius:8px;
+    padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer}
+  .status{display:flex;gap:10px;margin-top:10px}
+  .pill{flex:1;text-align:center;font-size:12px;padding:8px;border-radius:10px;background:var(--bar)}
+  .pill.ok{color:var(--green)} .pill.no{color:var(--red)}
+  h2{font-size:15px;margin:18px 0 10px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px}
+  .order{background:var(--card);border-radius:12px;padding:12px;margin-bottom:8px;
+    display:flex;justify-content:space-between;align-items:center}
+  .order .amt{font-size:17px;font-weight:700}
+  .order .meta{font-size:11px;color:var(--sub);margin-top:2px}
+  .badge{font-size:11px;font-weight:700;padding:5px 10px;border-radius:20px;text-transform:uppercase}
+  .badge.paid{background:rgba(62,207,111,.15);color:var(--green)}
+  .badge.pending{background:rgba(245,166,35,.15);color:var(--yellow)}
+  .badge.expired{background:rgba(138,153,168,.15);color:var(--sub)}
+  .empty{text-align:center;color:var(--sub);padding:24px;font-size:14px}
+  .err{text-align:center;padding:40px 20px;color:var(--red)}
+  .loader{text-align:center;padding:60px 20px;color:var(--sub)}
+  .spin{width:36px;height:36px;border:3px solid var(--bar);border-top-color:var(--accent);
+    border-radius:50%;margin:0 auto 12px;animation:sp 1s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="loader"><div class="spin"></div>Loading dashboard...</div>
+</div>
+<script>
+(function(){
+  var tg = window.Telegram && window.Telegram.WebApp;
+  if(tg){
+    tg.ready(); tg.expand();
+    try{
+      var sp = tg.themeParams || {};
+      var r = document.documentElement.style;
+      if(sp.bg_color) r.setProperty('--bg', sp.bg_color);
+      if(sp.secondary_bg_color) r.setProperty('--card', sp.secondary_bg_color);
+      if(sp.text_color) r.setProperty('--text', sp.text_color);
+      if(sp.hint_color) r.setProperty('--sub', sp.hint_color);
+      if(sp.button_color) r.setProperty('--accent', sp.button_color);
+      if(tg.colorScheme === 'light'){
+        r.setProperty('--bar', '#e8edf2');
+      }
+      tg.setHeaderColor(sp.bg_color || '#0e1621');
+    }catch(e){}
+  }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,
+    function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function money(p){ return 'Rs.' + (p/100).toFixed(2).replace(/\.00$/,''); }
+  function copyKey(){
+    var k = document.getElementById('apikey').textContent;
+    if(navigator.clipboard){ navigator.clipboard.writeText(k); }
+    var b = document.getElementById('copybtn'); b.textContent = 'Copied!';
+    setTimeout(function(){ b.textContent = 'Copy'; }, 1500);
+  }
+  window.copyKey = copyKey;
+  var initData = (tg && tg.initData) || '';
+  fetch('api/dashboard', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({initData: initData})
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if(!d.ok){
+      document.getElementById('app').innerHTML =
+        '<div class="err">Could not load dashboard.<br><small>' + esc(d.error||'auth failed') +
+        '</small><br><br><small>Open this page from the bot\'s Dashboard button.</small></div>';
+      return;
+    }
+    var pct = d.quota_total ? Math.min(100, Math.round(d.quota_used/d.quota_total*100)) : 0;
+    var orders = (d.orders||[]).map(function(o){
+      var cls = o.status==='paid' ? 'paid' : (o.status==='pending' ? 'pending' : 'expired');
+      return '<div class="order"><div><div class="amt">' + money(o.amount_paise) + '</div>' +
+        '<div class="meta">' + esc(o.order_id) + ' &middot; ' + esc((o.created_at||'').slice(0,16).replace('T',' ')) +
+        (o.note ? ' &middot; ' + esc(o.note.slice(0,30)) : '') + '</div></div>' +
+        '<div class="badge ' + cls + '">' + esc(o.status) + '</div></div>';
+    }).join('');
+    document.getElementById('app').innerHTML =
+      '<div class="head"><div class="logo">&#9889;</div><div><h1>FamBridge</h1><p>' +
+      esc(d.owner_name||'Merchant') + '</p></div></div>' +
+      '<div class="grid">' +
+        '<div class="card"><div class="lbl">Total orders</div><div class="val">' + d.total_orders + '</div></div>' +
+        '<div class="card"><div class="lbl">Revenue</div><div class="val green">' + money(d.revenue_paise) + '</div></div>' +
+        '<div class="card"><div class="lbl">Paid</div><div class="val green">' + d.paid_count + '</div></div>' +
+        '<div class="card"><div class="lbl">Pending</div><div class="val yellow">' + d.pending_count + '</div></div>' +
+        '<div class="card wide"><div class="planrow"><div class="planname">' + esc(d.plan) + ' plan</div>' +
+        '<div class="planprice">' + (d.plan_price ? 'Rs.'+d.plan_price+'/mo' : 'Free') + '</div></div>' +
+        '<div class="bar"><div style="width:' + pct + '%"></div></div>' +
+        '<div class="quota">' + d.quota_used + ' / ' + d.quota_total + ' requests used (' + pct + '%)</div></div>' +
+        '<div class="card wide"><div class="lbl">API key</div>' +
+        '<div class="keybox"><span id="apikey">' + esc(d.api_key||'') + '</span>' +
+        '<button class="copybtn" id="copybtn" onclick="copyKey()">Copy</button></div>' +
+        '<div class="status"><div class="pill ' + (d.gmail_ok?'ok':'no') + '">Gmail ' + (d.gmail_ok?'connected':'not connected') + '</div>' +
+        '<div class="pill ' + (d.upi_ok?'ok':'no') + '">UPI ' + (d.upi_ok?'set':'not set') + '</div></div></div>' +
+      '</div>' +
+      '<h2>Recent orders</h2>' +
+      (orders || '<div class="empty">No orders yet. Create one from your bot or website.</div>');
+  }).catch(function(){
+    document.getElementById('app').innerHTML =
+      '<div class="err">Network error.<br><small>Check your connection and reopen.</small></div>';
+  });
+})();
+</script>
+</body>
+</html>
