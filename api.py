@@ -17,7 +17,7 @@ import threading
 from datetime import datetime, timedelta
 
 import requests
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from dotenv import load_dotenv
 
 import common as C
@@ -338,6 +338,81 @@ def terms():
 @app.route("/privacy")
 def privacy():
     return L.privacy_html()
+
+
+# ---------- Telegram Web App (merchant dashboard) ----------
+def verify_init_data(init_data):
+    """Validate a Telegram WebApp initData string per Telegram docs.
+    Returns the parsed params dict on success, None on failure."""
+    from urllib.parse import parse_qsl
+    try:
+        params = dict(parse_qsl(init_data or "", keep_blank_values=True))
+        received = params.pop("hash", None)
+        if not received or not BOT_TOKEN:
+            return None
+        check_str = "\n".join(f"{k}={v}" for k, v in sorted(params.items()))
+        secret = hmac.new(b"WebAppData", BOT_TOKEN.encode(),
+                          hashlib.sha256).digest()
+        calc = hmac.new(secret, check_str.encode(),
+                        hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(calc, received):
+            return None
+        return params
+    except Exception:
+        return None
+
+
+@app.route("/webapp")
+def webapp_index():
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        "webapp", "index.html")
+    return send_file(path)
+
+
+@app.route("/webapp/api/dashboard", methods=["POST"])
+def webapp_dashboard():
+    data = request.get_json(force=True, silent=True) or {}
+    params = verify_init_data(data.get("initData", ""))
+    if not params:
+        return jsonify({"ok": False, "error": "auth failed"}), 401
+    try:
+        user = json.loads(params.get("user", "{}"))
+    except Exception:
+        return jsonify({"ok": False, "error": "auth failed"}), 401
+    owner_id = str(user.get("id", ""))
+    api_key, m = C.get_merchant_by_owner(owner_id)
+    if not m:
+        return jsonify({"ok": False,
+                        "error": "no merchant account — create an API key in the bot first"}), 404
+    plan = (m.get("plan") or "free").lower()
+    quota_total = C.PLANS.get(plan, C.PLANS["free"])["quota"]
+    orders = C.load_json(C.ORDERS_FILE, {})
+    mine = [o for o in orders.values() if o.get("api_key") == api_key]
+    mine.sort(key=lambda o: o.get("created_at", ""), reverse=True)
+    paid = [o for o in mine if o.get("status") == "paid"]
+    pending = [o for o in mine if o.get("status") == "pending"]
+    return jsonify({
+        "ok": True,
+        "owner_name": m.get("owner_name", "Merchant"),
+        "plan": plan,
+        "plan_price": C.PLANS.get(plan, C.PLANS["free"])["price"],
+        "quota_used": int(m.get("quota_used", 0)),
+        "quota_total": quota_total,
+        "api_key": api_key,
+        "gmail_ok": bool(m.get("gmail_email")),
+        "upi_ok": bool(m.get("upi_id")),
+        "total_orders": len(mine),
+        "paid_count": len(paid),
+        "pending_count": len(pending),
+        "revenue_paise": sum(o.get("amount_paise", 0) for o in paid),
+        "orders": [{
+            "order_id": o.get("order_id", ""),
+            "amount_paise": o.get("amount_paise", 0),
+            "status": o.get("status", ""),
+            "note": o.get("note", ""),
+            "created_at": o.get("created_at", ""),
+        } for o in mine[:20]],
+    })
 
 
 # ---------- webhook + telegram notify ----------
