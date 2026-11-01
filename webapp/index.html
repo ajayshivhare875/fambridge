@@ -7,236 +7,311 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
   :root{
-    --bg:#0e1621; --card:#17212b; --text:#ffffff; --sub:#8a99a8;
-    --accent:#2aabee; --green:#3ecf6f; --yellow:#f5a623; --red:#ef4b4b;
-    --bar:#242f3d;
+    --bg:#0f1419; --card:#1a222d; --text:#f2f5f8; --sub:#8b98a9;
+    --accent:#2f9fe0; --green:#34c77b; --yellow:#e8a33d; --red:#e5484d;
+    --line:rgba(139,152,169,.16); --input:#232f3e;
   }
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html{-webkit-text-size-adjust:100%}
   body{
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
     background:var(--bg); color:var(--text);
-    padding:16px 16px 32px; min-height:100vh;
+    padding:20px 16px 110px; min-height:100vh; font-size:15px; line-height:1.45;
   }
-  @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
-  @keyframes glow{0%,100%{box-shadow:0 0 18px rgba(42,171,238,.35)}50%{box-shadow:0 0 30px rgba(62,207,111,.45)}}
-  @keyframes shimmer{from{background-position:-200% 0}to{background-position:200% 0}}
-  .hero{
-    background:linear-gradient(135deg,#1a6fd4 0%,#2aabee 45%,#3ecf6f 100%);
-    border-radius:20px; padding:20px 18px; margin-bottom:16px;
-    display:flex; align-items:center; gap:14px;
-    box-shadow:0 8px 28px rgba(42,171,238,.30);
-    animation:rise .5s ease both;
-    position:relative; overflow:hidden;
-  }
-  .hero::after{
-    content:''; position:absolute; inset:0;
-    background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.18) 50%,transparent 70%);
-    background-size:200% 100%; animation:shimmer 5s linear infinite; pointer-events:none;
-  }
-  .avatar{width:52px;height:52px;border-radius:16px;background:rgba(255,255,255,.22);
-    display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;
-    border:2px solid rgba(255,255,255,.35)}
-  .hero h1{font-size:21px;letter-spacing:.3px}
-  .hero p{font-size:12px;opacity:.92;margin-top:2px;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
-  .card{background:var(--card);border-radius:16px;padding:14px;position:relative;overflow:hidden;
-    animation:rise .5s ease both;box-shadow:0 4px 14px rgba(0,0,0,.25)}
-  .card:nth-child(2){animation-delay:.06s}.card:nth-child(3){animation-delay:.12s}
-  .card:nth-child(4){animation-delay:.18s}.card:nth-child(5){animation-delay:.24s}
-  .card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;
-    background:linear-gradient(90deg,var(--accent),var(--green));opacity:.85}
-  .card .top{display:flex;align-items:center;gap:6px}
-  .ico{width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px}
-  .card .lbl{font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.8px}
-  .card .val{font-size:26px;font-weight:800;margin-top:6px}
-  .card .val.green{color:var(--green);text-shadow:0 0 14px rgba(62,207,111,.4)}
-  .card .val.yellow{color:var(--yellow);text-shadow:0 0 14px rgba(245,166,35,.4)}
-  .wide{grid-column:1/-1}
-  .planrow{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-  .planname{font-size:16px;font-weight:800;text-transform:capitalize;
-    background:linear-gradient(90deg,var(--accent),var(--green));
-    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-  .planprice{font-size:12px;color:var(--sub);background:var(--bar);padding:4px 10px;border-radius:20px}
-  .bar{height:10px;background:var(--bar);border-radius:6px;overflow:hidden;margin:10px 0 6px}
-  .bar>div{height:100%;background:linear-gradient(90deg,#2aabee,#3ecf6f);border-radius:6px;
-    transition:width .8s ease;box-shadow:0 0 10px rgba(42,171,238,.6)}
-  .quota{font-size:12px;color:var(--sub)}
-  .keybox{display:flex;align-items:center;gap:8px;background:var(--bar);border-radius:12px;
-    padding:10px 12px;margin-top:10px;font-family:monospace;font-size:13px;
-    border:1px solid rgba(42,171,238,.25)}
-  .keybox span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .copybtn{background:linear-gradient(135deg,#2aabee,#1a6fd4);border:none;color:#fff;border-radius:10px;
-    padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;
-    box-shadow:0 4px 12px rgba(42,171,238,.4)}
-  .copybtn:active{transform:scale(.95)}
-  .status{display:flex;gap:10px;margin-top:10px}
-  .pill{flex:1;text-align:center;font-size:12px;font-weight:600;padding:9px;border-radius:12px;background:var(--bar)}
-  .pill.ok{color:var(--green);border:1px solid rgba(62,207,111,.35)}
-  .pill.no{color:var(--red);border:1px solid rgba(239,75,75,.35)}
-  h2{font-size:13px;margin:20px 0 10px;color:var(--sub);text-transform:uppercase;letter-spacing:1px}
-  .order{background:var(--card);border-radius:14px;padding:13px;margin-bottom:9px;
-    display:flex;justify-content:space-between;align-items:center;
-    border-left:4px solid var(--sub);animation:rise .5s ease both;
-    box-shadow:0 4px 12px rgba(0,0,0,.22)}
-  .order.st-paid{border-left-color:var(--green)}
-  .order.st-pending{border-left-color:var(--yellow);animation:glow 2.4s ease-in-out infinite}
-  .order .amt{font-size:18px;font-weight:800}
-  .order .meta{font-size:11px;color:var(--sub);margin-top:3px}
-  .badge{font-size:11px;font-weight:800;padding:6px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:.5px}
-  .badge.paid{background:rgba(62,207,111,.16);color:var(--green);box-shadow:0 0 10px rgba(62,207,111,.25)}
-  .badge.pending{background:rgba(245,166,35,.16);color:var(--yellow);box-shadow:0 0 10px rgba(245,166,35,.25)}
-  .badge.expired{background:rgba(138,153,168,.14);color:var(--sub)}
-  .empty{text-align:center;color:var(--sub);padding:28px;font-size:14px}
-  .inp{width:100%;background:var(--bar);border:1px solid rgba(42,171,238,.25);color:var(--text);
-    border-radius:12px;padding:12px;font-size:14px;margin-top:8px;outline:none}
+  /* ---------- pages ---------- */
+  .page{display:none}
+  .page.on{display:block;animation:fade .28s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  /* ---------- header ---------- */
+  .hello{font-size:13px;color:var(--sub);margin-bottom:2px}
+  .title{font-size:26px;font-weight:800;letter-spacing:-.4px;margin-bottom:18px}
+  /* ---------- cards ---------- */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;
+    padding:16px;margin-bottom:12px}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px}
+  .stat .k{font-size:12px;color:var(--sub);font-weight:600;letter-spacing:.2px}
+  .stat .v{font-size:27px;font-weight:800;letter-spacing:-.5px;margin-top:6px;font-variant-numeric:tabular-nums}
+  .v.green{color:var(--green)} .v.amber{color:var(--yellow)}
+  .rowline{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}
+  .rowline:last-child{border-bottom:none}
+  .rowline .k{color:var(--sub);font-size:14px}
+  .rowline .val{font-weight:700;font-size:14px}
+  .planbadge{font-size:12px;font-weight:700;color:var(--accent);background:rgba(47,159,224,.12);
+    padding:4px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:.6px}
+  .bar{height:8px;background:var(--input);border-radius:5px;overflow:hidden;margin:12px 0 8px}
+  .bar>div{height:100%;background:var(--accent);border-radius:5px;transition:width .9s cubic-bezier(.2,.8,.2,1)}
+  .fine{font-size:12.5px;color:var(--sub)}
+  .fine b{color:var(--text);font-weight:600}
+  .valid{color:var(--green);font-weight:600}
+  /* ---------- key ---------- */
+  .keyrow{display:flex;align-items:center;gap:10px}
+  .keyval{flex:1;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;
+    background:var(--input);border-radius:12px;padding:11px 12px;color:var(--text);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cbtn{background:var(--accent);border:none;color:#fff;font-weight:700;font-size:13.5px;
+    border-radius:12px;padding:11px 18px;cursor:pointer;flex-shrink:0}
+  .cbtn:active{opacity:.75}
+  /* ---------- inputs / buttons ---------- */
+  .fld{margin-bottom:4px}
+  .inp{width:100%;background:var(--input);border:1px solid var(--line);color:var(--text);
+    border-radius:13px;padding:13px 14px;font-size:15px;margin-top:10px;outline:none;font-family:inherit}
   .inp:focus{border-color:var(--accent)}
-  .btn{width:100%;background:linear-gradient(135deg,#2aabee,#1a6fd4);border:none;color:#fff;
-    border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;margin-top:10px;
-    box-shadow:0 4px 12px rgba(42,171,238,.35)}
-  .btn:active{transform:scale(.98)}
-  .btn.danger{background:linear-gradient(135deg,#ef4b4b,#c23333);box-shadow:0 4px 12px rgba(239,75,75,.35)}
-  .btnrow{display:flex;gap:8px}
-  .btnrow .btn{margin-top:10px}
-  .msg{font-size:13px;margin-top:8px;min-height:18px}
-  .msg.ok{color:var(--green)} .msg.err2{color:var(--red)}
-  .clabel{font-size:13px;font-weight:700;margin-bottom:2px}
-  .chint{font-size:11px;color:var(--sub);margin-top:6px}
-  .err{text-align:center;padding:40px 20px;color:var(--red)}
-  .loader{text-align:center;padding:60px 20px;color:var(--sub)}
-  .spin{width:38px;height:38px;border:3px solid var(--bar);border-top-color:var(--accent);
-    border-radius:50%;margin:0 auto 12px;animation:sp 1s linear infinite}
+  .inp::placeholder{color:var(--sub);opacity:.7}
+  .btn{width:100%;background:var(--accent);border:none;color:#fff;border-radius:14px;
+    padding:14px;font-size:15px;font-weight:700;cursor:pointer;margin-top:12px;font-family:inherit}
+  .btn:active{opacity:.8}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--text);box-shadow:none}
+  .btn.danger{background:rgba(229,72,77,.12);color:var(--red);border:1px solid rgba(229,72,77,.3)}
+  .msg{font-size:13px;margin-top:10px;min-height:20px}
+  .msg.ok{color:var(--green)} .msg.bad{color:var(--red)}
+  .hint{font-size:12px;color:var(--sub);margin-top:8px}
+  .sect{font-size:13px;font-weight:700;color:var(--sub);text-transform:uppercase;
+    letter-spacing:1px;margin:22px 2px 10px}
+  .dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:7px}
+  .dot.ok{background:var(--green)} .dot.no{background:var(--red)}
+  /* ---------- orders ---------- */
+  .chips{display:flex;gap:8px;margin-bottom:14px}
+  .chip{border:1px solid var(--line);background:var(--card);color:var(--sub);
+    border-radius:20px;padding:8px 16px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit}
+  .chip.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+  .ord{background:var(--card);border:1px solid var(--line);border-radius:16px;
+    padding:14px 16px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .ord .a{font-size:18px;font-weight:800;letter-spacing:-.3px;font-variant-numeric:tabular-nums}
+  .ord .m{font-size:12px;color:var(--sub);margin-top:3px}
+  .st{font-size:11px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;
+    padding:6px 12px;border-radius:20px;flex-shrink:0}
+  .st.paid{color:var(--green);background:rgba(52,199,123,.12)}
+  .st.pending{color:var(--yellow);background:rgba(232,163,61,.12)}
+  .st.expired{color:var(--sub);background:rgba(139,152,169,.12)}
+  .empty{text-align:center;color:var(--sub);padding:44px 20px;font-size:14px}
+  /* ---------- tabbar ---------- */
+  #tabbar{position:fixed;left:16px;right:16px;bottom:14px;z-index:50;
+    display:flex;background:rgba(26,34,45,.88);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+    border:1px solid var(--line);border-radius:22px;padding:8px;
+    box-shadow:0 10px 34px rgba(0,0,0,.45)}
+  .tab{flex:1;border:none;background:transparent;color:var(--sub);font-family:inherit;
+    display:flex;flex-direction:column;align-items:center;gap:3px;
+    padding:9px 0;border-radius:15px;cursor:pointer;font-size:11px;font-weight:600}
+  .tab .ti{font-size:19px;line-height:1}
+  .tab.on{background:rgba(47,159,224,.14);color:var(--accent)}
+  /* ---------- misc ---------- */
+  .loader{text-align:center;padding:70px 20px;color:var(--sub)}
+  .spin{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--accent);
+    border-radius:50%;margin:0 auto 14px;animation:sp 1s linear infinite}
   @keyframes sp{to{transform:rotate(360deg)}}
+  .errbox{text-align:center;padding:50px 24px}
+  .errbox .et{color:var(--red);font-weight:700;font-size:16px;margin-bottom:8px}
+  .errbox .es{color:var(--sub);font-size:13px}
 </style>
 </head>
 <body>
-<div id="app">
-  <div class="loader"><div class="spin"></div>Loading dashboard...</div>
-</div>
+<div id="app"><div class="loader"><div class="spin"></div>Loading…</div></div>
+<nav id="tabbar" hidden>
+  <button class="tab on" data-p="home"><span class="ti">◈</span><span>Home</span></button>
+  <button class="tab" data-p="orders"><span class="ti">▤</span><span>Orders</span></button>
+  <button class="tab" data-p="controls"><span class="ti">⚙</span><span>Controls</span></button>
+</nav>
 <script>
 (function(){
   var tg = window.Telegram && window.Telegram.WebApp;
   if(tg){
     tg.ready(); tg.expand();
     try{
-      var sp = tg.themeParams || {};
-      var r = document.documentElement.style;
+      var sp = tg.themeParams || {}, r = document.documentElement.style;
       if(sp.bg_color) r.setProperty('--bg', sp.bg_color);
-      if(sp.secondary_bg_color) r.setProperty('--card', sp.secondary_bg_color);
+      if(sp.secondary_bg_color){ r.setProperty('--card', sp.secondary_bg_color); }
       if(sp.text_color) r.setProperty('--text', sp.text_color);
       if(sp.hint_color) r.setProperty('--sub', sp.hint_color);
       if(sp.button_color) r.setProperty('--accent', sp.button_color);
-      if(tg.colorScheme === 'light'){
-        r.setProperty('--bar', '#e8edf2');
-      }
-      tg.setHeaderColor(sp.bg_color || '#0e1621');
+      tg.setHeaderColor(sp.bg_color || '#0f1419');
+      tg.setBackgroundColor(sp.bg_color || '#0f1419');
     }catch(e){}
   }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,
     function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
   function money(p){ return 'Rs.' + (p/100).toFixed(2).replace(/\.00$/,''); }
   function fmtDate(iso){ try{ return new Date(iso).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}); }catch(e){ return ''; } }
-  function copyKey(){
-    var k = document.getElementById('apikey').textContent;
-    if(navigator.clipboard){ navigator.clipboard.writeText(k); }
-    var b = document.getElementById('copybtn'); b.textContent = 'Copied!';
-    setTimeout(function(){ b.textContent = 'Copy'; }, 1500);
+  function fmtDT(s){ return esc((s||'').slice(0,16).replace('T',' ')); }
+  function countUp(el, target, isMoney){
+    var t0 = null, dur = 700;
+    function step(t){
+      if(!t0) t0 = t;
+      var p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+      var v = Math.round(target * e);
+      el.textContent = isMoney ? money(v) : v.toLocaleString('en-IN');
+      if(p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
   }
-  window.copyKey = copyKey;
+  var initData = (tg && tg.initData) || '';
+  var D = null, orderFilter = 'all';
+
+  /* ---------- tabs ---------- */
+  function showPage(name){
+    var ps = document.querySelectorAll('.page');
+    for(var i=0;i<ps.length;i++) ps[i].classList.toggle('on', ps[i].id === 'page-' + name);
+    var ts = document.querySelectorAll('.tab');
+    for(var j=0;j<ts.length;j++) ts[j].classList.toggle('on', ts[j].dataset.p === name);
+    window.scrollTo(0,0);
+    if(tg && tg.HapticFeedback) try{ tg.HapticFeedback.selectionChanged(); }catch(e){}
+  }
+  document.getElementById('tabbar').addEventListener('click', function(e){
+    var b = e.target.closest('.tab'); if(b) showPage(b.dataset.p);
+  });
+
+  /* ---------- controls ---------- */
   function ctl(path, body, msgId, okText){
     var me = document.getElementById(msgId);
-    me.className = 'msg'; me.textContent = 'Working...';
-    fetch('/webapp' + path, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(Object.assign({initData: initData}, body))
-    }).then(function(r){ return r.json(); }).then(function(d){
-      if(d.ok){ me.className = 'msg ok'; me.textContent = okText || 'Saved!'; }
-      else { me.className = 'msg err2'; me.textContent = d.error || 'Failed'; }
-    }).catch(function(){ me.className = 'msg err2'; me.textContent = 'Network error'; });
+    me.className = 'msg'; me.textContent = 'Saving…';
+    fetch('/webapp' + path, {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(Object.assign({initData: initData}, body))})
+    .then(function(r){ return r.json(); }).then(function(d){
+      if(d.ok){ me.className = 'msg ok'; me.textContent = okText || 'Saved.'; }
+      else { me.className = 'msg bad'; me.textContent = d.error || 'Failed.'; }
+    }).catch(function(){ me.className = 'msg bad'; me.textContent = 'Network error.'; });
   }
-  function saveUpi(){ ctl('/api/set_upi', {upi_id: document.getElementById('upi_inp').value}, 'upi_msg', 'UPI ID saved!'); }
-  function connectGmail(){ ctl('/api/connect_gmail', {email: document.getElementById('gmail_email').value, app_password: document.getElementById('gmail_pass').value}, 'gmail_msg', 'Gmail connected!'); }
-  function disconnectGmail(){ ctl('/api/disconnect_gmail', {}, 'gmail_msg', 'Gmail disconnected.'); }
-  function saveWebhook(){ ctl('/api/set_webhook', {url: document.getElementById('wh_inp').value}, 'wh_msg', 'Webhook saved!'); }
-  function regenKey(){
-    if(!window.confirm('Regenerate API key? The old key stops working immediately.')) return;
+  window.saveUpi = function(){ ctl('/api/set_upi', {upi_id: document.getElementById('upi_inp').value}, 'upi_msg', 'UPI ID saved.'); };
+  window.connectGmail = function(){ ctl('/api/connect_gmail', {email: document.getElementById('gmail_email').value, app_password: document.getElementById('gmail_pass').value}, 'gmail_msg', 'Gmail connected.'); };
+  window.disconnectGmail = function(){ ctl('/api/disconnect_gmail', {}, 'gmail_msg', 'Gmail disconnected.'); };
+  window.saveWebhook = function(){ ctl('/api/set_webhook', {url: document.getElementById('wh_inp').value}, 'wh_msg', 'Webhook saved.'); };
+  window.copyKey = function(){
+    var k = document.getElementById('apikey').textContent;
+    if(navigator.clipboard) navigator.clipboard.writeText(k);
+    var m = document.getElementById('key_msg'); m.className = 'msg ok'; m.textContent = 'Copied to clipboard.';
+    setTimeout(function(){ m.textContent = ''; }, 1600);
+  };
+  window.regenKey = function(){
+    if(!window.confirm('Generate a new API key? The current key will stop working immediately.')) return;
     var me = document.getElementById('key_msg');
-    me.className = 'msg'; me.textContent = 'Working...';
+    me.className = 'msg'; me.textContent = 'Working…';
     fetch('/webapp/api/regen_key', {method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({initData: initData})}).then(function(r){ return r.json(); }).then(function(d){
       if(d.ok){ document.getElementById('apikey').textContent = d.api_key;
-        me.className = 'msg ok'; me.textContent = 'New key generated & copied below.'; }
-      else { me.className = 'msg err2'; me.textContent = d.error || 'Failed'; }
-    }).catch(function(){ me.className = 'msg err2'; me.textContent = 'Network error'; });
+        me.className = 'msg ok'; me.textContent = 'New key generated.'; }
+      else { me.className = 'msg bad'; me.textContent = d.error || 'Failed.'; }
+    }).catch(function(){ me.className = 'msg bad'; me.textContent = 'Network error.'; });
+  };
+  window.setFilter = function(f){
+    orderFilter = f; renderOrders();
+    var cs = document.querySelectorAll('.chip');
+    for(var i=0;i<cs.length;i++) cs[i].classList.toggle('on', cs[i].dataset.f === f);
+  };
+
+  /* ---------- render ---------- */
+  function orderRow(o){
+    var cls = o.status === 'paid' ? 'paid' : (o.status === 'pending' ? 'pending' : 'expired');
+    return '<div class="ord"><div><div class="a">' + money(o.amount_paise) + '</div>' +
+      '<div class="m">' + esc(o.order_id) + ' · ' + fmtDT(o.created_at) +
+      (o.note ? ' · ' + esc(String(o.note).slice(0,28)) : '') + '</div></div>' +
+      '<span class="st ' + cls + '">' + esc(o.status) + '</span></div>';
   }
-  window.saveUpi = saveUpi; window.connectGmail = connectGmail;
-  window.disconnectGmail = disconnectGmail; window.saveWebhook = saveWebhook;
-  window.regenKey = regenKey;
-  var initData = (tg && tg.initData) || '';
-  fetch('/webapp/api/dashboard', {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({initData: initData})
-  }).then(function(r){ return r.json(); }).then(function(d){
-    if(!d.ok){
-      document.getElementById('app').innerHTML =
-        '<div class="err">Could not load dashboard.<br><small>' + esc(d.error||'auth failed') +
-        '</small><br><br><small>Open this page from the bot\'s Dashboard button.</small></div>';
-      return;
-    }
-    var pct = d.quota_total ? Math.min(100, Math.round(d.quota_used/d.quota_total*100)) : 0;
-    var orders = (d.orders||[]).map(function(o){
-      var cls = o.status==='paid' ? 'paid' : (o.status==='pending' ? 'pending' : 'expired');
-      var stc = o.status==='paid' ? 'st-paid' : (o.status==='pending' ? 'st-pending' : '');
-      return '<div class="order ' + stc + '"><div><div class="amt">' + money(o.amount_paise) + '</div>' +
-        '<div class="meta">' + esc(o.order_id) + ' &middot; ' + esc((o.created_at||'').slice(0,16).replace('T',' ')) +
-        (o.note ? ' &middot; ' + esc(o.note.slice(0,30)) : '') + '</div></div>' +
-        '<div class="badge ' + cls + '">' + esc(o.status) + '</div></div>';
-    }).join('');
-    document.getElementById('app').innerHTML =
-      '<div class="hero"><div class="avatar">&#9889;</div><div><h1>FamBridge</h1><p>' +
-      esc(d.owner_name||'Merchant') + '</p></div></div>' +
-      '<div class="grid">' +
-        '<div class="card"><div class="top"><div class="ico" style="background:rgba(42,171,238,.15)">&#128202;</div><div class="lbl">Total orders</div></div><div class="val">' + d.total_orders + '</div></div>' +
-        '<div class="card"><div class="top"><div class="ico" style="background:rgba(62,207,111,.15)">&#128176;</div><div class="lbl">Revenue</div></div><div class="val green">' + money(d.revenue_paise) + '</div></div>' +
-        '<div class="card"><div class="top"><div class="ico" style="background:rgba(62,207,111,.15)">&#9989;</div><div class="lbl">Paid</div></div><div class="val green">' + d.paid_count + '</div></div>' +
-        '<div class="card"><div class="top"><div class="ico" style="background:rgba(245,166,35,.15)">&#9203;</div><div class="lbl">Pending</div></div><div class="val yellow">' + d.pending_count + '</div></div>' +
-        '<div class="card wide"><div class="planrow"><div class="planname">' + esc(d.plan) + ' plan</div>' +
-        '<div class="planprice">' + (d.plan_price ? 'Rs.'+d.plan_price+'/mo' : 'Free') + '</div></div>' +
-        '<div class="bar"><div style="width:' + pct + '%"></div></div>' +
-        '<div class="quota">' + d.quota_used + ' / ' + d.quota_total + ' requests used (' + pct + '%)</div>' +
-        (d.plan !== 'free' && d.plan_expires_at ?
-          '<div class="quota" style="margin-top:4px;color:var(--green)">Valid till ' + fmtDate(d.plan_expires_at) + '</div>' : '') +
-        '</div>' +
-        '<div class="card wide"><div class="lbl">API key</div>' +
-        '<div class="keybox"><span id="apikey">' + esc(d.api_key||'') + '</span>' +
-        '<button class="copybtn" id="copybtn" onclick="copyKey()">Copy</button></div>' +
-        '<div class="status"><div class="pill ' + (d.gmail_ok?'ok':'no') + '">Gmail ' + (d.gmail_ok?'connected':'not connected') + '</div>' +
-        '<div class="pill ' + (d.upi_ok?'ok':'no') + '">UPI ' + (d.upi_ok?'set':'not set') + '</div></div></div>' +
+  function renderOrders(){
+    var list = (D.orders || []).filter(function(o){
+      return orderFilter === 'all' || o.status === orderFilter;
+    });
+    document.getElementById('orderlist').innerHTML = list.length ? list.map(orderRow).join('') :
+      '<div class="empty">No ' + (orderFilter === 'all' ? '' : orderFilter + ' ') + 'orders.</div>';
+  }
+  window.renderOrders = renderOrders;
+
+  function render(d){
+    D = d;
+    var pct = d.quota_total ? Math.min(100, Math.round(d.quota_used / d.quota_total * 100)) : 0;
+    var first = esc((d.owner_name || 'Merchant').split(' ')[0]);
+    var app = document.getElementById('app');
+
+    var home =
+    '<section class="page on" id="page-home">' +
+      '<div class="hello">Welcome back,</div><div class="title">' + first + '</div>' +
+      '<div class="stats">' +
+        '<div class="stat"><div class="k">Total orders</div><div class="v" id="st_total">0</div></div>' +
+        '<div class="stat"><div class="k">Revenue</div><div class="v green" id="st_rev">Rs.0</div></div>' +
+        '<div class="stat"><div class="k">Paid</div><div class="v green" id="st_paid">0</div></div>' +
+        '<div class="stat"><div class="k">Pending</div><div class="v amber" id="st_pend">0</div></div>' +
       '</div>' +
-      '<h2>Controls</h2>' +
-      '<div class="card wide"><div class="clabel">&#128179; UPI ID</div>' +
-        '<input class="inp" id="upi_inp" placeholder="name@fam" value="' + esc(d.upi_id||'') + '" autocomplete="off">' +
+      '<div class="card"><div class="rowline"><span class="k">Current plan</span>' +
+        '<span class="planbadge">' + esc(d.plan) + '</span></div>' +
+        '<div class="bar"><div id="qbar" style="width:0%"></div></div>' +
+        '<div class="fine"><b>' + d.quota_used + '</b> of ' + d.quota_total + ' requests used' +
+        (d.plan !== 'free' && d.plan_expires_at ?
+          ' · <span class="valid">Valid till ' + fmtDate(d.plan_expires_at) + '</span>' :
+          ' · resets 1st') + '</div></div>' +
+      '<div class="card"><div class="rowline"><span class="k">API key</span></div>' +
+        '<div class="keyrow" style="margin-top:4px"><div class="keyval" id="apikey">' + esc(d.api_key || '') + '</div>' +
+        '<button class="cbtn" onclick="copyKey()">Copy</button></div>' +
+        '<div class="msg" id="key_msg"></div>' +
+        '<div class="rowline" style="margin-top:6px"><span class="k"><span class="dot ' + (d.gmail_ok ? 'ok' : 'no') + '"></span>Gmail</span>' +
+        '<span class="val">' + (d.gmail_ok ? 'Connected' : 'Not connected') + '</span></div>' +
+        '<div class="rowline"><span class="k"><span class="dot ' + (d.upi_ok ? 'ok' : 'no') + '"></span>UPI ID</span>' +
+        '<span class="val">' + (d.upi_ok ? esc(d.upi_id) : 'Not set') + '</span></div></div>' +
+    '</section>';
+
+    var orders =
+    '<section class="page" id="page-orders">' +
+      '<div class="hello">Payment history</div><div class="title">Orders</div>' +
+      '<div class="chips">' +
+        '<button class="chip on" data-f="all" onclick="setFilter(\'all\')">All</button>' +
+        '<button class="chip" data-f="pending" onclick="setFilter(\'pending\')">Pending</button>' +
+        '<button class="chip" data-f="paid" onclick="setFilter(\'paid\')">Paid</button>' +
+      '</div>' +
+      '<div id="orderlist"></div>' +
+    '</section>';
+
+    var controls =
+    '<section class="page" id="page-controls">' +
+      '<div class="hello">Merchant settings</div><div class="title">Controls</div>' +
+      '<div class="sect">Payouts</div>' +
+      '<div class="card"><div class="fld" style="font-weight:700">UPI ID</div>' +
+        '<div class="fine">FamPay UPI ID where customers pay you.</div>' +
+        '<input class="inp" id="upi_inp" placeholder="name@fam" autocomplete="off" value="' + esc(d.upi_id || '') + '">' +
         '<button class="btn" onclick="saveUpi()">Save UPI ID</button><div class="msg" id="upi_msg"></div></div>' +
-      '<div class="card wide" style="margin-top:10px"><div class="clabel">&#128231; Gmail</div>' +
+      '<div class="sect">Gmail</div>' +
+      '<div class="card"><div class="fld" style="font-weight:700">Payment verification</div>' +
+        '<div class="fine">Connect the Gmail linked to your FamPay account. We read payment emails to auto-verify orders.</div>' +
         (d.gmail_ok ?
-          '<div class="chint">Connected: ' + esc(d.gmail||'') + '</div>' +
-          '<div class="btnrow"><button class="btn danger" onclick="disconnectGmail()">Disconnect</button></div>' :
-          '<input class="inp" id="gmail_email" placeholder="you@gmail.com" value="' + esc(d.gmail||'') + '" autocomplete="off">' +
+          '<div class="fine" style="margin-top:10px"><span class="dot ok"></span>' + esc(d.gmail || '') + '</div>' +
+          '<button class="btn danger" onclick="disconnectGmail()">Disconnect Gmail</button>' :
+          '<input class="inp" id="gmail_email" placeholder="you@gmail.com" autocomplete="off" value="' + esc(d.gmail || '') + '">' +
           '<input class="inp" id="gmail_pass" type="password" placeholder="App Password" autocomplete="off">' +
-          '<div class="chint">Google Account &gt; Security &gt; 2-Step Verification &gt; App passwords</div>' +
+          '<div class="hint">Google Account → Security → 2-Step Verification → App passwords</div>' +
           '<button class="btn" onclick="connectGmail()">Connect Gmail</button>') +
         '<div class="msg" id="gmail_msg"></div></div>' +
-      '<div class="card wide" style="margin-top:10px"><div class="clabel">&#128279; Webhook URL</div>' +
-        '<input class="inp" id="wh_inp" placeholder="https://...  (or: off)" value="' + esc(d.webhook_url||'') + '" autocomplete="off">' +
+      '<div class="sect">Developer</div>' +
+      '<div class="card"><div class="fld" style="font-weight:700">Webhook URL</div>' +
+        '<div class="fine">We POST here on every verified payment. Send “off” to disable.</div>' +
+        '<input class="inp" id="wh_inp" placeholder="https://…" autocomplete="off" value="' + esc(d.webhook_url || '') + '">' +
         '<button class="btn" onclick="saveWebhook()">Save Webhook</button><div class="msg" id="wh_msg"></div></div>' +
-      '<div class="card wide" style="margin-top:10px"><div class="clabel">&#128273; API Key</div>' +
-        '<div class="chint">Regenerating invalidates the old key immediately.</div>' +
-        '<button class="btn danger" onclick="regenKey()">Regenerate API Key</button><div class="msg" id="key_msg"></div></div>' +
-      '<h2>Recent orders</h2>' +
-      (orders || '<div class="empty">No orders yet. Create one from your bot or website.</div>');
+      '<div class="card"><div class="fld" style="font-weight:700">API key</div>' +
+        '<div class="fine">Regenerating invalidates the current key immediately.</div>' +
+        '<button class="btn danger" onclick="regenKey()">Regenerate Key</button></div>' +
+    '</section>';
+
+    app.innerHTML = home + orders + controls;
+    document.getElementById('tabbar').hidden = false;
+    renderOrders();
+    countUp(document.getElementById('st_total'), d.total_orders || 0, false);
+    countUp(document.getElementById('st_rev'), d.revenue_paise || 0, true);
+    countUp(document.getElementById('st_paid'), d.paid_count || 0, false);
+    countUp(document.getElementById('st_pend'), d.pending_count || 0, false);
+    setTimeout(function(){ document.getElementById('qbar').style.width = pct + '%'; }, 120);
+  }
+
+  /* ---------- boot ---------- */
+  fetch('/webapp/api/dashboard', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({initData: initData})})
+  .then(function(r){ return r.json(); }).then(function(d){
+    if(!d.ok){
+      document.getElementById('app').innerHTML =
+        '<div class="errbox"><div class="et">Couldn’t load dashboard</div>' +
+        '<div class="es">' + esc(d.error || 'Auth failed') + '<br>Open this page from the bot’s Dashboard button.</div></div>';
+      return;
+    }
+    render(d);
   }).catch(function(){
     document.getElementById('app').innerHTML =
-      '<div class="err">Network error.<br><small>Check your connection and reopen.</small></div>';
+      '<div class="errbox"><div class="et">Network error</div>' +
+      '<div class="es">Check your connection and reopen.</div></div>';
   });
 })();
 </script>
