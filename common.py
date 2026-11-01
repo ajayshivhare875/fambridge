@@ -341,26 +341,66 @@ def revoke_merchant_key(owner_id):
 
 
 # ---------- subscription plans & quota ----------
+# Paid plans are valid for 30 days from purchase (plan_expires_at), NOT the
+# calendar month. Free plan quota resets on the 1st of every month.
 def _quota_period():
     return datetime.now().strftime("%Y-%m")
 
 
+def _effective_plan(api_key, m, merchants):
+    """Returns the merchant's active plan, auto-downgrading an expired paid
+    plan to free (and persisting the change)."""
+    plan = (m.get("plan") or "free").lower()
+    if plan not in PLANS:
+        plan = "free"
+    if plan != "free":
+        exp = m.get("plan_expires_at")
+        if not exp:
+            # Legacy paid record without expiry: grant 30 days from now.
+            m["plan_expires_at"] = (datetime.now() + timedelta(days=30)).isoformat()
+            merchants[api_key] = m
+            save_json(MERCHANTS_FILE, merchants)
+        else:
+            try:
+                expired = datetime.fromisoformat(exp) < datetime.now()
+            except Exception:
+                expired = True
+            if expired:
+                m["plan"] = "free"
+                m.pop("plan_expires_at", None)
+                m["quota_used"] = 0
+                m["quota_period"] = _quota_period()
+                merchants[api_key] = m
+                save_json(MERCHANTS_FILE, merchants)
+                return "free"
+    return plan
+
+
+def get_plan_expiry(api_key):
+    """ISO expiry datetime of the paid plan, or None for free/no expiry."""
+    merchants = load_json(MERCHANTS_FILE, {})
+    m = merchants.get(api_key)
+    if not m:
+        return None
+    return m.get("plan_expires_at")
+
+
 def get_quota(api_key):
-    """Returns (plan, used, limit) for a merchant. Counter resets every month."""
+    """Returns (plan, used, limit) for a merchant.
+    Paid-plan quota is valid for 30 days from purchase; free quota resets monthly."""
     merchants = load_json(MERCHANTS_FILE, {})
     m = merchants.get(api_key)
     if not m:
         return "free", 0, PLANS["free"]["quota"]
-    period = _quota_period()
-    if m.get("quota_period") != period or "plan" not in m:
-        m["quota_period"] = period
-        m["quota_used"] = 0
-        m.setdefault("plan", "free")
-        merchants[api_key] = m
-        save_json(MERCHANTS_FILE, merchants)
-    plan = m.get("plan", "free")
-    if plan not in PLANS:
-        plan = "free"
+    plan = _effective_plan(api_key, m, merchants)
+    if plan == "free":
+        period = _quota_period()
+        if m.get("quota_period") != period or "plan" not in m:
+            m["quota_period"] = period
+            m["quota_used"] = 0
+            m.setdefault("plan", "free")
+            merchants[api_key] = m
+            save_json(MERCHANTS_FILE, merchants)
     used = int(m.get("quota_used") or 0)
     return plan, used, PLANS[plan]["quota"]
 
@@ -369,7 +409,7 @@ def check_quota(api_key):
     """True if the merchant may create another order. Returns (ok, error_msg)."""
     plan, used, limit = get_quota(api_key)
     if used >= limit:
-        return False, (f"{plan.upper()} plan limit over ({limit} payment requests/month). "
+        return False, (f"{plan.upper()} plan limit over ({limit} payment requests). "
                        "Upgrade for more — contact @Magvenomsuper.")
     return True, ""
 
@@ -379,21 +419,31 @@ def bump_quota(api_key):
     m = merchants.get(api_key)
     if not m:
         return
-    period = _quota_period()
-    if m.get("quota_period") != period:
-        m["quota_period"] = period
-        m["quota_used"] = 0
+    # Paid plans: quota runs for the 30-day validity, no mid-period reset.
+    # Free plan: monthly reset.
+    if (m.get("plan") or "free") == "free":
+        period = _quota_period()
+        if m.get("quota_period") != period:
+            m["quota_period"] = period
+            m["quota_used"] = 0
     m["quota_used"] = int(m.get("quota_used") or 0) + 1
     merchants[api_key] = m
     save_json(MERCHANTS_FILE, merchants)
 
 
 def set_plan(api_key, plan):
+    """Activate a plan. Paid plans are valid 30 days from now; quota resets."""
     merchants = load_json(MERCHANTS_FILE, {})
     m = merchants.get(api_key)
     if not m or plan not in PLANS:
         return False
     m["plan"] = plan
+    if plan == "free":
+        m.pop("plan_expires_at", None)
+        m["quota_period"] = _quota_period()
+    else:
+        m["plan_expires_at"] = (datetime.now() + timedelta(days=30)).isoformat()
+    m["quota_used"] = 0
     merchants[api_key] = m
     save_json(MERCHANTS_FILE, merchants)
     return True
@@ -407,9 +457,9 @@ def cycle_plan(plan):
 
 
 def plan_summary(plan):
-    """Short human line: 'STARTER (150 requests/month, ₹80)'."""
+    """Short human line: 'STARTER (150 requests/30 days, ₹80)'."""
     p = PLANS.get(plan, PLANS["free"])
-    return f"{plan.upper()} ({p['quota']} requests/month, ₹{p['price']})"
+    return f"{plan.upper()} ({p['quota']} requests/30 days, ₹{p['price']})"
 
 
 # ---------- subscription auto-purchase (sub-orders) ----------
