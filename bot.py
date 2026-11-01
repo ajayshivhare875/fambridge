@@ -315,7 +315,7 @@ User Panel > Set UPI ID (your FamPay UPI ID, e.g. name@fam)
 User Panel > My API Key > Create
 User Panel > Connect My Bot (optional — get payment notifications from your own bot)
 
-Plans (monthly): FREE = 60 requests (₹0) • STARTER = 150 (₹80) • BEST = 250 (₹150) • PREMIUM = 500 (₹250). Counter resets on the 1st.
+Plans: FREE = 60 requests (₹0) • STARTER = 150 (₹80) • BEST = 250 (₹150) • PREMIUM = 500 (₹250). Paid plans are valid 30 days from purchase.
 Upgrade anytime from My Plan — pay via UPI QR, your plan auto-activates when the payment is detected!
 
 STEP 2: Customer flow (in your own bot or website)
@@ -635,16 +635,26 @@ async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         plan, used, limit = C.get_quota(key) if key else ("free", 0, C.PLANS["free"]["quota"])
         remaining = limit - used
         lines = [f"💳 My Plan: {plan.upper()}\n",
-                 f"📊 Usage this month:",
-                 f"   ✔ Used: {used} requests",
+                 f"📊 Usage:"]
+        if plan != "free" and key:
+            exp = C.get_plan_expiry(key)
+            if exp:
+                try:
+                    dt = datetime.fromisoformat(exp)
+                    lines.append(f"   📅 Valid till: {dt.strftime('%d %b %Y')}")
+                except Exception:
+                    pass
+        lines += [f"   ✔ Used: {used} requests",
                  f"   📦 Remaining: {remaining} requests",
                  f"   (Total: {limit})"]
         if remaining <= 0:
             lines.append("   ⛔ Quota over! Upgrade to continue.")
         elif remaining <= limit * 0.2:
             lines.append("   ⚠️ Low quota — consider upgrading!")
-        lines += ["Counter resets on the 1st of every month.\n",
-                  "Plans (monthly):"]
+        lines += ["Valid 30 days from purchase (paid plans)."
+                  if plan != "free" else
+                  "Free quota resets on the 1st of every month.\n",
+                  "Plans:"]
         for p in C.PLAN_ORDER:
             mark = " ← current" if p == plan else ""
             lines.append(f"• {p.upper()} — {C.PLANS[p]['quota']} requests — ₹{C.PLANS[p]['price']}{mark}")
