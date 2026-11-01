@@ -384,8 +384,8 @@ def webapp_dashboard():
     if not m:
         return jsonify({"ok": False,
                         "error": "no merchant account — create an API key in the bot first"}), 404
-    plan = (m.get("plan") or "free").lower()
-    quota_total = C.PLANS.get(plan, C.PLANS["free"])["quota"]
+    plan, quota_used, quota_total = C.get_quota(api_key)
+    m = C.load_json(C.MERCHANTS_FILE, {}).get(api_key, m)  # refresh after auto-downgrade
     orders = C.load_json(C.ORDERS_FILE, {})
     mine = [o for o in orders.values() if o.get("api_key") == api_key]
     mine.sort(key=lambda o: o.get("created_at", ""), reverse=True)
@@ -396,9 +396,13 @@ def webapp_dashboard():
         "owner_name": m.get("owner_name", "Merchant"),
         "plan": plan,
         "plan_price": C.PLANS.get(plan, C.PLANS["free"])["price"],
-        "quota_used": int(m.get("quota_used", 0)),
+        "plan_expires_at": m.get("plan_expires_at"),
+        "quota_used": quota_used,
         "quota_total": quota_total,
         "api_key": api_key,
+        "gmail": m.get("gmail_email", ""),
+        "upi_id": m.get("upi_id", ""),
+        "webhook_url": m.get("webhook_url", ""),
         "gmail_ok": bool(m.get("gmail_email")),
         "upi_ok": bool(m.get("upi_id")),
         "total_orders": len(mine),
@@ -413,6 +417,127 @@ def webapp_dashboard():
             "created_at": o.get("created_at", ""),
         } for o in mine[:20]],
     })
+
+
+# ---------- Web App controls (merchant self-service) ----------
+def _webapp_merchant(init_data):
+    """Validate initData and return (api_key, merchant) or (None, error_msg)."""
+    params = verify_init_data(init_data or "")
+    if not params:
+        return None, "auth failed"
+    try:
+        user = json.loads(params.get("user", "{}"))
+    except Exception:
+        return None, "auth failed"
+    owner_id = str(user.get("id", ""))
+    api_key, m = C.get_merchant_by_owner(owner_id)
+    if not m:
+        return None, "no merchant account"
+    return (api_key, m), None
+
+
+def _save_merchant(api_key, m):
+    merchants = C.load_json(C.MERCHANTS_FILE, {})
+    merchants[api_key] = m
+    return C.save_json(C.MERCHANTS_FILE, merchants)
+
+
+@app.route("/webapp/api/set_upi", methods=["POST"])
+def webapp_set_upi():
+    data = request.get_json(force=True, silent=True) or {}
+    res, err = _webapp_merchant(data.get("initData", ""))
+    if err:
+        return jsonify({"ok": False, "error": err}), 401
+    api_key, m = res
+    upi_id = (data.get("upi_id") or "").strip()
+    if "@" not in upi_id:
+        return jsonify({"ok": False, "error": "Send a valid UPI ID (e.g. name@fam)."}), 400
+    m["upi_id"] = upi_id
+    if not _save_merchant(api_key, m):
+        return jsonify({"ok": False, "error": "Storage temporarily unreachable, try again."}), 503
+    return jsonify({"ok": True, "upi_id": upi_id})
+
+
+@app.route("/webapp/api/connect_gmail", methods=["POST"])
+def webapp_connect_gmail():
+    data = request.get_json(force=True, silent=True) or {}
+    res, err = _webapp_merchant(data.get("initData", ""))
+    if err:
+        return jsonify({"ok": False, "error": err}), 401
+    api_key, m = res
+    email_addr = (data.get("email") or "").strip()
+    app_pass = (data.get("app_password") or "").strip().replace(" ", "")
+    if "@" not in email_addr or not app_pass:
+        return jsonify({"ok": False, "error": "Enter your Gmail and App Password."}), 400
+    try:
+        mail = imaplib.IMAP4_SSL("imap.gmail.com", timeout=20)
+        mail.login(email_addr, app_pass)
+        mail.logout()
+    except Exception:
+        return jsonify({"ok": False,
+                        "error": "Gmail login failed. Check email / App Password."}), 400
+    m["gmail_email"] = email_addr
+    try:
+        m["gmail_apppass_enc"] = C.fernet_encrypt(app_pass)
+    except RuntimeError:
+        return jsonify({"ok": False,
+                        "error": "Storage temporarily unreachable, try again."}), 503
+    m["last_uid"] = 0
+    if not _save_merchant(api_key, m):
+        return jsonify({"ok": False, "error": "Storage temporarily unreachable, try again."}), 503
+    return jsonify({"ok": True, "email": email_addr})
+
+
+@app.route("/webapp/api/disconnect_gmail", methods=["POST"])
+def webapp_disconnect_gmail():
+    data = request.get_json(force=True, silent=True) or {}
+    res, err = _webapp_merchant(data.get("initData", ""))
+    if err:
+        return jsonify({"ok": False, "error": err}), 401
+    api_key, m = res
+    m["gmail_email"] = ""
+    m["gmail_apppass_enc"] = ""
+    if not _save_merchant(api_key, m):
+        return jsonify({"ok": False, "error": "Storage temporarily unreachable, try again."}), 503
+    return jsonify({"ok": True})
+
+
+@app.route("/webapp/api/set_webhook", methods=["POST"])
+def webapp_set_webhook():
+    data = request.get_json(force=True, silent=True) or {}
+    res, err = _webapp_merchant(data.get("initData", ""))
+    if err:
+        return jsonify({"ok": False, "error": err}), 401
+    api_key, m = res
+    url = (data.get("url") or "").strip()
+    if url.lower() == "off":
+        url = ""
+    if url and not (url.startswith("http://") or url.startswith("https://")):
+        return jsonify({"ok": False, "error": "Send a valid http(s) URL, or 'off' to remove."}), 400
+    if url and not C.is_safe_webhook_url(url):
+        return jsonify({"ok": False, "error": "URL not allowed (must be a public address)."}), 400
+    m["webhook_url"] = url
+    if not _save_merchant(api_key, m):
+        return jsonify({"ok": False, "error": "Storage temporarily unreachable, try again."}), 503
+    return jsonify({"ok": True, "webhook_url": url})
+
+
+@app.route("/webapp/api/regen_key", methods=["POST"])
+def webapp_regen_key():
+    """Non-destructive key rotation: new key, same merchant record kept."""
+    import secrets
+    data = request.get_json(force=True, silent=True) or {}
+    res, err = _webapp_merchant(data.get("initData", ""))
+    if err:
+        return jsonify({"ok": False, "error": err}), 401
+    api_key, m = res
+    new_key = "fp_" + secrets.token_urlsafe(24)
+    merchants = C.load_json(C.MERCHANTS_FILE, {})
+    del merchants[api_key]
+    merchants[new_key] = m
+    if not C.save_json(C.MERCHANTS_FILE, merchants):
+        return jsonify({"ok": False, "error": "Storage temporarily unreachable, try again."}), 503
+    return jsonify({"ok": True, "api_key": new_key})
 
 
 # ---------- webhook + telegram notify ----------
